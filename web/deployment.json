@@ -1,0 +1,9 @@
+{
+  "siteLabel": "hamlock",
+  "chainId": 11155111,
+  "address": "0xc17b08994b70b468aa30e4e3d73edf9d65727302",
+  "deploymentBlock": 12036187,
+  "sourceCommit": "9681bafe1674f448285c0599a2dbec90e95da4eb",
+  "abiHash": "0x43bb55098850ee049978e928345f248f6bccb48ec10c81d1c0413e841d5a395a",
+  "runtimeCodeHash": "0x2a7d8020300f3be9fb399174fcd6059fdaefbff70b715574937a76d77b6303aa"
+}

@@ -1,0 +1,4 @@
+# Explicit Git path budget: each generated subtree below contributes 0 bytes.
+/node_modules/
+/.vite/
+# Source, package.json, package-lock.json and ../dist/ remain deliverables.

@@ -6,7 +6,68 @@ Breaking early forfeits 20% of principal and all earned rewards to the remaining
 
 The deployable application is **`src/Hamlock.sol:Hamlock`**, compiled with **Solidity 0.8.28**.
 It is one file, with no Solidity dependencies, linked libraries, token, owner, administrator,
-pause, upgrade, rescue function or initialization transaction. The website is outside this project.
+pause, upgrade, rescue function or initialization transaction. The browser client is in `web/`, with the finished static export in `dist/`.
+
+## Website (site label: hamlock)
+
+The contract is already live on **Ethereum Sepolia, chain ID 11155111**, at
+[`0xc17b08994b70b468aa30e4e3d73edf9d65727302`](https://sepolia.etherscan.io/address/0xc17b08994b70b468aa30e4e3d73edf9d65727302).
+The website connects to that deployment directly from the browser. This website contribution does not deploy or publish anything. `dist/` is the ready-to-pin IPFS export; the hosting plane publishes it after handoff.
+
+Use Node.js 22.12 or newer and npm. From the repository root:
+
+```sh
+cd web
+npm ci
+npm run typecheck
+npm run build
+npm run preview
+```
+
+Open the preview URL printed by Vite (normally `http://localhost:4173`). For development use `npm run dev`. The build writes **root `dist/`**, including `index.html`, fonts, favicon, share card, artwork and wallet marks. Vite uses `base: './'`, assets are relative, and navigation uses anchors, so the page works at an IPFS gateway subpath with no rewrite server. Serve the directory over HTTP(S); do not double-click `index.html` as a `file:` URL. No private keys, environment files, relay, project ID or backend are required.
+
+The independent frontend manifest and exact npm lockfile are `web/package.json` and `web/package-lock.json`. Existing Solidity configuration and dependencies are unchanged. `web/.gitignore` has an explicit zero-byte Git budget for `web/node_modules/**` and `web/.vite/**`; source, manifests, lockfile and root `dist/` are retained. Package caches and browser/system dependencies used for verification stay outside the submission.
+
+### Data and wallet behavior
+
+- Reads work without a wallet through PublicNode, then the pinned ethpandaops and Sentio Sepolia fallbacks. Contract constants provide form limits, work conversion per chosen km, deadline duration and penalty percentages. Unknown or unavailable readings are labelled; no demo balances or rankings ship.
+- Injected wallets are discovered by EIP-6963 and shown by name. The wallet sheet also supports Coinbase Wallet/Smart Wallet, and mobile links into MetaMask, Coinbase, Rabby and Phantom. The header offers switch/add Sepolia and disconnect. Wallet signing is required only for `lock`, `open`, and `breakJar`.
+- Before transactions, the client checks the chain ID and the verified runtime code hash, simulates the call, requests the wallet signature, and follows the receipt. The ABI was generated from the pinned source with Foundry/Solidity 0.8.28; its canonical Keccak hash exactly matches `web/deployment.json`. Compiled runtime, including the immutable core address, also exactly matched live bytecode.
+- Chain state, jar data and Squeekchain status refresh every 15 seconds while the page is active. The API's freshness and timestamps are checked. Stale or failed telemetry removes the live layer; settled contract data remains. Only `isOpenable` authorizes opening. A deadline opening still works when the core/API is unavailable.
+- The leaderboard scans `Opened` events from block **12036187**, keeps only `hamsterRanIt = true`, and reads `kmCompleted`, `jarsCompleted`, and `jarsBroken` for those wallets. It ranks km, then completed jars; broken jars appear as “Paper hands.” Scans adapt their block range to provider limits and rescan a short tail for reorgs. No complete ranking is shown while a scan is incomplete.
+- All consequential ETH arithmetic uses `bigint`; the break dialog displays wei-exact values and rechecks the pending reward before signing. Network fees are excluded and rewards can still change before mining. The requested approximate active-night distance and wheel calibration are explanatory facts supplied by the brief; they are not invented live readings.
+- Share on X appears for an active or just-confirmed jar and uses its distance plus the current site URL. The unknown final IPFS address is never guessed.
+
+### Website verification
+
+After building, browser validation can be rerun from `web/`:
+
+```sh
+npx playwright install --with-deps chromium webkit
+npm run validate
+npm run verify:live -- --out artifacts/live-verification.json
+```
+
+The first command installs verification browsers and their host dependencies; it can require system package permissions. `validate` serves the actual export under `/preview/`, closes its own server/browsers, and writes generated evidence under root `test/scratch/interactions/` and `artifacts/`. Mock transactions never reach a real chain; a separate smoke check reads the live services. `verify:live` is read-only, checks the ABI/runtime hashes and contract/API responses, and interprets `--out` relative to the repository root. It does not sign, send or deploy.
+
+Actual final results on 2026-10-31:
+
+| Check                               | Result                                                                         |
+| ----------------------------------- | ------------------------------------------------------------------------------ |
+| `npm run typecheck`                 | Passed, exit 0                                                                 |
+| `npm run build`                     | Passed, exit 0; static export generated                                        |
+| `npm run validate`                  | **21/21 passed**, exit 0; Chromium and WebKit                                  |
+| Pinned `taste.mjs` production probe | **16/16 passed**, exit 0; 320, 390 and 1440px                                  |
+| axe WCAG A/AA scans                 | No violations in disconnected page, wallet dialog, active jar and break dialog |
+| Live Sepolia and Squeekchain reads  | Passed; ABI hash and compiled runtime match verified deployment                |
+
+WebKit initially lacked libraries/graphics support. Verification succeeded after extracting the required libraries outside the repository and enabling software EGL. The supplied managed browser tool itself could not initialize because its cache was read-only; the rendered evidence comes from local Playwright. The build reports an upstream `ox` Tempo `node:worker_threads` externalization warning; the EVM site rendered without script or missing-local-resource errors in both engines.
+
+No real wallet transaction, Coinbase passkey creation, physical-phone deep link, screen-reader session or native browser zoom was performed. These limits are separate from the passing mock transaction, keyboard, reflow, contrast and accessibility checks. Public RPC/API availability remains external to the static site.
+
+[Detailed review and limitations](docs/WEBSITE_VALIDATION.md), [recorded results](docs/checks/interactions.json), [design system](DESIGN.md), [mobile screenshot](docs/screenshots/mobile-live.png), [desktop screenshot](docs/screenshots/desktop-live.png).
+
+The original contract build/review and deployment handoff below is retained as project history. The live address above supersedes its predeployment handoff status.
 
 **Independent security review is requested before deployment.** See
 [the review request](docs/SECURITY_REVIEW.md). Local tests are not an independent audit.
@@ -41,16 +102,16 @@ all remaining jars after the deadline at the end of each run. Defaults: 512 case
 
 ## Deployment handoff
 
-| Parameter | Value |
-| --- | --- |
-| Network | Ethereum Sepolia only |
-| Chain ID | `11155111` |
-| Solidity contract | `Hamlock` |
-| Constructor | `constructor(address core_)`, nonpayable |
-| `core_` | `0x980b4424c007caf7a1f3670b48c8eaef7ebc3d44` |
-| Deployment ETH | `0` |
-| Owner/admin argument | None |
-| Initialization / library linking | None |
+| Parameter                        | Value                                        |
+| -------------------------------- | -------------------------------------------- |
+| Network                          | Ethereum Sepolia only                        |
+| Chain ID                         | `11155111`                                   |
+| Solidity contract                | `Hamlock`                                    |
+| Constructor                      | `constructor(address core_)`, nonpayable     |
+| `core_`                          | `0x980b4424c007caf7a1f3670b48c8eaef7ebc3d44` |
+| Deployment ETH                   | `0`                                          |
+| Owner/admin argument             | None                                         |
+| Initialization / library linking | None                                         |
 
 The dependency is the **SqueekCore proxy**, not its implementation. Its address comes from the
 approved brief. The [official API](https://api.squeekchain.com/v1/core) was checked during this work
@@ -70,16 +131,16 @@ verify source on the Sepolia explorer. Never substitute a guessed HAMLOCK addres
 
 ## Rules and interface
 
-| Setting | Value |
-| --- | --- |
-| Distance | Integer kilometres, `1` through `100`, inclusive |
-| Work per kilometre | `1139` wheel turns (one turn is approximately 0.878 metres) |
-| Deposit | `0.001` through `1` Sepolia ETH, inclusive |
-| Maximum duration | `30 days` from the lock transaction's timestamp |
-| Early penalty | `2000 / 10000` of principal, rounded down |
-| Reward scale | `1e24` |
-| Core read gas budget | `200000` gas for the isolated read frame |
-| Empty-pool burn recipient | `0x000000000000000000000000000000000000dEaD` |
+| Setting                   | Value                                                       |
+| ------------------------- | ----------------------------------------------------------- |
+| Distance                  | Integer kilometres, `1` through `100`, inclusive            |
+| Work per kilometre        | `1139` wheel turns (one turn is approximately 0.878 metres) |
+| Deposit                   | `0.001` through `1` Sepolia ETH, inclusive                  |
+| Maximum duration          | `30 days` from the lock transaction's timestamp             |
+| Early penalty             | `2000 / 10000` of principal, rounded down                   |
+| Reward scale              | `1e24`                                                      |
+| Core read gas budget      | `200000` gas for the isolated read frame                    |
+| Empty-pool burn recipient | `0x000000000000000000000000000000000000dEaD`                |
 
 - `lock(uint16 km)` is payable and creates one active jar for the caller. Target work is the current
   cumulative work plus `km * 1139`. Closing a jar permits a fresh lock; no top-ups or jar transfers.

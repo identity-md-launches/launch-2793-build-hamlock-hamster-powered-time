@@ -1,0 +1,139 @@
+{
+  "checkedAt": "2026-10-31T20:45:23.344Z",
+  "target": "dist/ served under /preview/",
+  "fixtures": "Mock accounts are generated per run. Mock RPC/API values are test-only; no transaction is broadcast.",
+  "results": [
+    {
+      "name": "Static subpath assets, metadata, real font loading, mobile first screen",
+      "passed": true,
+      "durationMs": 553,
+      "detail": {
+        "title": "HAMLOCK — The hamster-powered time lock",
+        "description": "Lock your Sepolia ETH. It opens when Squeektoshi the hamster runs your distance. A testnet game, powered by a very small athlete.",
+        "og": "./og.png",
+        "fonts": [
+          true,
+          true
+        ],
+        "overflow": false,
+        "buttonBottom": 686.953125,
+        "height": 844
+      }
+    },
+    {
+      "name": "Wallet discovery, rejection, Escape, focus trap and focus return",
+      "passed": true,
+      "durationMs": 612
+    },
+    {
+      "name": "No-extension prompt and Coinbase SDK bundle are usable",
+      "passed": true,
+      "durationMs": 853
+    },
+    {
+      "name": "Phone wallet browser links preserve current IPFS subpath",
+      "passed": true,
+      "durationMs": 473
+    },
+    {
+      "name": "Wrong network blocks transactions; unknown-chain fallback adds Sepolia",
+      "passed": true,
+      "durationMs": 536
+    },
+    {
+      "name": "Amount validation and range math, including exact precision and bounds",
+      "passed": true,
+      "durationMs": 825
+    },
+    {
+      "name": "Lock simulation, wallet submission, confirmation, refreshed jar and X share",
+      "passed": true,
+      "durationMs": 548
+    },
+    {
+      "name": "Plain-English contract errors prevent sending funds",
+      "passed": true,
+      "durationMs": 1079
+    },
+    {
+      "name": "Settled progress plus lighter live overlay uses the jar baseline",
+      "passed": true,
+      "durationMs": 602
+    },
+    {
+      "name": "Break dialog displays wei-exact refund, penalty and reward; cancel preserves jar",
+      "passed": true,
+      "durationMs": 750
+    },
+    {
+      "name": "Changed rewards require renewed break confirmation",
+      "passed": true,
+      "durationMs": 606
+    },
+    {
+      "name": "Deadline opening works when the core and API are unavailable",
+      "passed": true,
+      "durationMs": 529
+    },
+    {
+      "name": "API outage and stale API both remove the live overlay",
+      "passed": true,
+      "durationMs": 890
+    },
+    {
+      "name": "Fallback public RPC and event-derived leaderboard ordering",
+      "passed": true,
+      "durationMs": 324
+    },
+    {
+      "name": "Responsive reflow, text enlargement and reduced motion",
+      "passed": true,
+      "durationMs": 395
+    },
+    {
+      "name": "RPC outage shows unknown values, keeps Connect available and recovers on Retry",
+      "passed": true,
+      "durationMs": 2191
+    },
+    {
+      "name": "Telemetry polls at 15 seconds and an outage removes a previously live overlay",
+      "passed": true,
+      "durationMs": 445
+    },
+    {
+      "name": "Wallet transaction rejection sends nothing and returns the form to idle",
+      "passed": true,
+      "durationMs": 448
+    },
+    {
+      "name": "Accessibility scan on the page, wallet dialog, active jar and break dialog",
+      "passed": true,
+      "durationMs": 2745,
+      "detail": {
+        "coverage": [
+          "disconnected page",
+          "wallet dialog",
+          "active jar",
+          "break dialog"
+        ],
+        "violations": 0
+      }
+    },
+    {
+      "name": "Read-only live Sepolia and API smoke on the actual export",
+      "passed": true,
+      "durationMs": 1189,
+      "detail": {
+        "poolStatus": "Block 12,036,305↻",
+        "hamsterStatus": "IDLE"
+      }
+    },
+    {
+      "name": "WebKit mobile primary form, wallet picker and subpath render",
+      "passed": true,
+      "durationMs": 2170
+    }
+  ],
+  "passed": 21,
+  "total": 21
+}

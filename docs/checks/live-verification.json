@@ -1,0 +1,36 @@
+{
+  "checkedAt": "2026-10-31T20:46:05.321Z",
+  "chainId": 11155111,
+  "address": "0xc17b08994b70b468aa30e4e3d73edf9d65727302",
+  "abiHash": "0x43bb55098850ee049978e928345f248f6bccb48ec10c81d1c0413e841d5a395a",
+  "runtimeCodeHash": "0x2a7d8020300f3be9fb399174fcd6059fdaefbff70b715574937a76d77b6303aa",
+  "sourceRuntimeMatch": true,
+  "block": "12036309",
+  "readings": {
+    "WORK_PER_KM": "1139",
+    "MIN_KM": 1,
+    "MAX_KM": 100,
+    "MIN_DEPOSIT": "1000000000000000",
+    "MAX_DEPOSIT": "1000000000000000000",
+    "MAX_DURATION": "2592000",
+    "PENALTY_BPS": "2000",
+    "currentWork": [
+      true,
+      "58518"
+    ],
+    "totalLocked": "0",
+    "activeJars": "0",
+    "totalPenalties": "0",
+    "totalBurned": "0"
+  },
+  "openedEvents": 0,
+  "hamsterCompletedEvents": 0,
+  "api": {
+    "status": 200,
+    "coreStatus": "IDLE",
+    "rpmMilli": 0,
+    "cumulativeWorkUnits": "58518",
+    "observedAt": "2026-10-31T20:46:03.824Z"
+  },
+  "limitations": "Read-only verification. No transaction was signed, sent, or deployed."
+}
