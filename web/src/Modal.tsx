@@ -57,7 +57,7 @@ export function Modal({
           <button
             type="button"
             className="icon-button"
-            aria-label={`Close ${title.toLowerCase()}`}
+            aria-label={`close ${title.toLowerCase()}`}
             onClick={onClose}
           >
             ×

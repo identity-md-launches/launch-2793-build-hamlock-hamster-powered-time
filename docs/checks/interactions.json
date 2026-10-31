@@ -1,114 +1,226 @@
 {
-  "checkedAt": "2026-10-31T20:45:23.344Z",
+  "checkedAt": "2026-10-31T22:02:50.756Z",
   "target": "dist/ served under /preview/",
   "fixtures": "Mock accounts are generated per run. Mock RPC/API values are test-only; no transaction is broadcast.",
   "results": [
     {
+      "name": "Exact degen copy, five rules and contract-derived limits",
+      "passed": true,
+      "durationMs": 524
+    },
+    {
+      "name": "Off-air schedule uses the visitor's local time; wheel stats remain independent",
+      "passed": true,
+      "durationMs": 478,
+      "detail": {
+        "timeZone": "America/Los_Angeles",
+        "localTime": "16:02",
+        "source": "schedule.occurrence.startAt"
+      }
+    },
+    {
+      "name": "X, YouTube and Twitch play on click, keep 16:9 and close back to art with focus",
+      "passed": true,
+      "durationMs": 2167,
+      "detail": {
+        "coverage": [
+          "x",
+          "youtube",
+          "twitch"
+        ],
+        "responsiveWidths": [
+          320,
+          390,
+          800,
+          1440
+        ],
+        "thirdPartyContent": "intercepted provider fixture; no claim of real video playback"
+      }
+    },
+    {
+      "name": "Every invalid provider identifier is refused before an iframe can be built",
+      "passed": true,
+      "durationMs": 4351,
+      "detail": {
+        "refusedCases": 20
+      }
+    },
+    {
+      "name": "Valid provider ID boundaries are accepted",
+      "passed": true,
+      "durationMs": 1693,
+      "detail": {
+        "acceptedCases": 5
+      }
+    },
+    {
+      "name": "Only live state with a future validUntil enables watching",
+      "passed": true,
+      "durationMs": 1641,
+      "detail": {
+        "offAirCases": 6
+      }
+    },
+    {
+      "name": "Descriptor expiry removes the player without waiting for another poll",
+      "passed": true,
+      "durationMs": 530
+    },
+    {
+      "name": "Both endpoints poll every 30 seconds only while visible; visibility return refreshes immediately",
+      "passed": true,
+      "durationMs": 535,
+      "detail": {
+        "currentRequests": 3,
+        "scheduleRequests": 3,
+        "hiddenTimeSimulatedMs": 90000
+      }
+    },
+    {
+      "name": "Ending, provider replacement and a failed poll all remove an open player",
+      "passed": true,
+      "durationMs": 1886
+    },
+    {
+      "name": "Descriptor failure falls back to X; malformed payloads cannot load an iframe; retry recovers",
+      "passed": true,
+      "durationMs": 758
+    },
+    {
+      "name": "Schedule outage or empty occurrence stays unknown and never suppresses a valid live player",
+      "passed": true,
+      "durationMs": 1810
+    },
+    {
+      "name": "Live controls and player pass axe; live and off-air badge contrast is measured",
+      "passed": true,
+      "durationMs": 3039,
+      "detail": {
+        "offAir": {
+          "label": "OFF AIR",
+          "foreground": "rgb(176, 182, 178)",
+          "background": "rgb(43, 48, 46)",
+          "ratio": 6.505043246960835
+        },
+        "live": {
+          "label": "LIVE",
+          "foreground": "rgb(14, 17, 15)",
+          "background": "rgb(255, 84, 79)",
+          "ratio": 5.99867331508405
+        },
+        "axeStates": [
+          "live art",
+          "player fixture"
+        ],
+        "violations": 0
+      }
+    },
+    {
       "name": "Static subpath assets, metadata, real font loading, mobile first screen",
       "passed": true,
-      "durationMs": 553,
+      "durationMs": 519,
       "detail": {
-        "title": "HAMLOCK — The hamster-powered time lock",
-        "description": "Lock your Sepolia ETH. It opens when Squeektoshi the hamster runs your distance. A testnet game, powered by a very small athlete.",
+        "title": "HAMLOCK — your bags. his legs.",
+        "description": "lock eth. the hamster runs. you get it back. maybe. testnet toy. zero real value.",
         "og": "./og.png",
         "fonts": [
           true,
           true
         ],
         "overflow": false,
-        "buttonBottom": 686.953125,
+        "buttonBottom": 701.953125,
         "height": 844
       }
     },
     {
       "name": "Wallet discovery, rejection, Escape, focus trap and focus return",
       "passed": true,
-      "durationMs": 612
+      "durationMs": 562
     },
     {
       "name": "No-extension prompt and Coinbase SDK bundle are usable",
       "passed": true,
-      "durationMs": 853
+      "durationMs": 805
     },
     {
       "name": "Phone wallet browser links preserve current IPFS subpath",
       "passed": true,
-      "durationMs": 473
+      "durationMs": 593
     },
     {
       "name": "Wrong network blocks transactions; unknown-chain fallback adds Sepolia",
       "passed": true,
-      "durationMs": 536
+      "durationMs": 600
     },
     {
       "name": "Amount validation and range math, including exact precision and bounds",
       "passed": true,
-      "durationMs": 825
+      "durationMs": 895
     },
     {
       "name": "Lock simulation, wallet submission, confirmation, refreshed jar and X share",
       "passed": true,
-      "durationMs": 548
+      "durationMs": 714
     },
     {
       "name": "Plain-English contract errors prevent sending funds",
       "passed": true,
-      "durationMs": 1079
+      "durationMs": 1229
     },
     {
       "name": "Settled progress plus lighter live overlay uses the jar baseline",
       "passed": true,
-      "durationMs": 602
+      "durationMs": 760
     },
     {
       "name": "Break dialog displays wei-exact refund, penalty and reward; cancel preserves jar",
       "passed": true,
-      "durationMs": 750
+      "durationMs": 968
     },
     {
       "name": "Changed rewards require renewed break confirmation",
       "passed": true,
-      "durationMs": 606
+      "durationMs": 716
     },
     {
       "name": "Deadline opening works when the core and API are unavailable",
       "passed": true,
-      "durationMs": 529
+      "durationMs": 649
     },
     {
       "name": "API outage and stale API both remove the live overlay",
       "passed": true,
-      "durationMs": 890
+      "durationMs": 1146
     },
     {
       "name": "Fallback public RPC and event-derived leaderboard ordering",
       "passed": true,
-      "durationMs": 324
+      "durationMs": 547
     },
     {
       "name": "Responsive reflow, text enlargement and reduced motion",
       "passed": true,
-      "durationMs": 395
+      "durationMs": 490
     },
     {
       "name": "RPC outage shows unknown values, keeps Connect available and recovers on Retry",
       "passed": true,
-      "durationMs": 2191
+      "durationMs": 2370
     },
     {
       "name": "Telemetry polls at 15 seconds and an outage removes a previously live overlay",
       "passed": true,
-      "durationMs": 445
+      "durationMs": 671
     },
     {
       "name": "Wallet transaction rejection sends nothing and returns the form to idle",
       "passed": true,
-      "durationMs": 448
+      "durationMs": 689
     },
     {
       "name": "Accessibility scan on the page, wallet dialog, active jar and break dialog",
       "passed": true,
-      "durationMs": 2745,
+      "durationMs": 4621,
       "detail": {
         "coverage": [
           "disconnected page",
@@ -122,18 +234,30 @@
     {
       "name": "Read-only live Sepolia and API smoke on the actual export",
       "passed": true,
-      "durationMs": 1189,
+      "durationMs": 870,
       "detail": {
-        "poolStatus": "Block 12,036,305↻",
+        "poolStatus": "block 12,036,690↻",
         "hamsterStatus": "IDLE"
       }
     },
     {
-      "name": "WebKit mobile primary form, wallet picker and subpath render",
+      "name": "WebKit mobile form, wallet picker, all three players and close/focus return",
       "passed": true,
-      "durationMs": 2170
+      "durationMs": 2652,
+      "detail": {
+        "engine": "WebKit",
+        "viewport": "390 × 844",
+        "coverage": [
+          "form validation",
+          "wallet picker",
+          "X player fixture",
+          "YouTube player fixture",
+          "Twitch player fixture",
+          "close and focus return"
+        ]
+      }
     }
   ],
-  "passed": 21,
-  "total": 21
+  "passed": 33,
+  "total": 33
 }

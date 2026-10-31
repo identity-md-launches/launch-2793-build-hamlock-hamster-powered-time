@@ -42,7 +42,7 @@ export function Wallet({
     try {
       if (connector.id === "injected" && !(await connector.getProvider())) {
         setMessage(
-          "No browser wallet found. Install MetaMask or Rabby, or choose Coinbase Wallet below.",
+          "no browser wallet. install metamask or rabby, or use coinbase below.",
         );
         return;
       }
@@ -75,24 +75,23 @@ export function Wallet({
           ▣
         </span>
         {switching
-          ? "Switching…"
+          ? "switching…"
           : wrongChain
-            ? "Switch to Sepolia"
+            ? "switch to sepolia"
             : address
               ? short(getAddress(address))
-              : "Connect wallet"}
+              : "connect"}
       </button>
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title={isConnected ? "Your wallet" : "Connect a wallet"}
+        title={isConnected ? "your wallet" : "connect a wallet"}
         className="wallet-modal"
       >
         {isConnected && address ? (
           <>
             <p className="muted">
-              Connected to{" "}
-              {chainId === sepolia.id ? "Ethereum Sepolia" : "another network"}.
+              {chainId === sepolia.id ? "sepolia connected." : "wrong network."}
             </p>
             <a
               className="full-address"
@@ -109,7 +108,7 @@ export function Wallet({
                 disabled={switching}
                 onClick={switchToSepolia}
               >
-                {switching ? "Switching…" : "Switch to Sepolia"}
+                {switching ? "switching…" : "switch to sepolia"}
               </button>
             )}
             <button
@@ -121,14 +120,11 @@ export function Wallet({
                 setOpen(false);
               }}
             >
-              Disconnect wallet
+              disconnect
             </button>
           </>
         ) : (
           <>
-            <p className="muted">
-              Your wallet holds the keys. HAMLOCK only uses Sepolia test ETH.
-            </p>
             <div className="wallet-list">
               {mobile &&
                 OPEN_IN.map((wallet) => (
@@ -143,7 +139,7 @@ export function Wallet({
                       height="28"
                       alt=""
                     />
-                    <span>Open in {wallet.name}</span>
+                    <span>open in {wallet.name.toLowerCase()}</span>
                     <span aria-hidden="true">↗</span>
                   </a>
                 ))}
@@ -166,12 +162,12 @@ export function Wallet({
                   />
                   <span>
                     {connector.id === "injected"
-                      ? "Browser wallet"
+                      ? "browser wallet"
                       : connector.id === "coinbaseWalletSDK"
                         ? mobile
-                          ? "Coinbase Smart Wallet"
-                          : "Coinbase Wallet"
-                        : connector.name}
+                          ? "coinbase smart wallet"
+                          : "coinbase wallet"
+                        : connector.name.toLowerCase()}
                     {isPending && variables?.connector === connector
                       ? " · opening…"
                       : ""}
@@ -180,12 +176,6 @@ export function Wallet({
                 </button>
               ))}
             </div>
-            {mobile && (
-              <p className="small muted">
-                Open this page in your wallet’s browser to connect without a
-                relay.
-              </p>
-            )}
           </>
         )}
         <p className="form-message" role="status">

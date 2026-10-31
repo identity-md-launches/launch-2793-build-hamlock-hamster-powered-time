@@ -1,11 +1,11 @@
 {
-  "checkedAt": "2026-10-31T20:46:05.321Z",
+  "checkedAt": "2026-10-31T21:53:06.768Z",
   "chainId": 11155111,
   "address": "0xc17b08994b70b468aa30e4e3d73edf9d65727302",
   "abiHash": "0x43bb55098850ee049978e928345f248f6bccb48ec10c81d1c0413e841d5a395a",
   "runtimeCodeHash": "0x2a7d8020300f3be9fb399174fcd6059fdaefbff70b715574937a76d77b6303aa",
   "sourceRuntimeMatch": true,
-  "block": "12036309",
+  "block": "12036642",
   "readings": {
     "WORK_PER_KM": "1139",
     "MIN_KM": 1,
@@ -16,10 +16,10 @@
     "PENALTY_BPS": "2000",
     "currentWork": [
       true,
-      "58518"
+      "59726"
     ],
-    "totalLocked": "0",
-    "activeJars": "0",
+    "totalLocked": "1000000000000000",
+    "activeJars": "1",
     "totalPenalties": "0",
     "totalBurned": "0"
   },
@@ -28,9 +28,9 @@
   "api": {
     "status": 200,
     "coreStatus": "IDLE",
-    "rpmMilli": 0,
-    "cumulativeWorkUnits": "58518",
-    "observedAt": "2026-10-31T20:46:03.824Z"
+    "rpmMilli": 74012,
+    "cumulativeWorkUnits": "59790",
+    "observedAt": "2026-10-31T21:53:04.181Z"
   },
   "limitations": "Read-only verification. No transaction was signed, sent, or deployed."
 }

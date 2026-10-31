@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { decodeEventLog, getAddress, parseEther, type Hash } from "viem";
 import { Wallet } from "./Wallet";
 import { Modal } from "./Modal";
+import { HamsterCard } from "./HamsterCard";
 import {
   useChainState,
   useJar,
@@ -83,7 +84,6 @@ export function App() {
     hasJar && jar ? getProgress(jar, settled, live?.work ?? null) : null;
   const km = distance ?? limits?.minKm;
   const penaltyPercent = limits ? Number(limits.penaltyBps) / 100 : null;
-  const refundPercent = penaltyPercent === null ? null : 100 - penaltyPercent;
   const payouts =
     limits && hasJar && jarState
       ? breakAmounts(jarState.jar.amount, jarState.reward, limits.penaltyBps)
@@ -200,8 +200,7 @@ export function App() {
             setBreakOpen(true);
             updateTx({
               phase: "idle",
-              message:
-                "Your reward changed. Review the updated amounts before confirming.",
+              message: "rewards changed. check the amounts. confirm again.",
             });
             return;
           }
@@ -245,7 +244,7 @@ export function App() {
       });
       if (!confirmed)
         throw new Error(
-          "The transaction was cancelled or replaced with a different action.",
+          "transaction cancelled or replaced with another action.",
         );
       if (action === "lock" && currentAddress.current === address)
         setLastLockedKm(km ?? null);
@@ -255,10 +254,10 @@ export function App() {
         hash: receipt.transactionHash,
         message:
           action === "lock"
-            ? "Your jar is locked. Squeektoshi takes it from here."
+            ? "locked. his problem now."
             : action === "open"
-              ? "Jar opened. Your ETH and rewards are on their way to your wallet."
-              : "Jar broken. Your refund is on its way to your wallet.",
+              ? "cashed out. eth and rewards returned."
+              : "paper handed. refund returned.",
       });
       void refresh();
     } catch (error) {
@@ -267,7 +266,7 @@ export function App() {
         action,
         hash: sentHash,
         message: sentHash
-          ? "Confirmation could not be completed. Check the transaction on Etherscan before trying again."
+          ? "confirmation unknown. check etherscan before retrying."
           : errorMessage(error),
       });
       void refresh();
@@ -290,7 +289,7 @@ export function App() {
   return (
     <>
       <a href="#lock" className="skip-link">
-        Skip to lock form
+        skip to lock form
       </a>
       <div className="site-shell">
         <header className="site-header">
@@ -300,13 +299,13 @@ export function App() {
               HAMLOCK<span className="brand-dot">.</span>
             </span>
           </a>
-          <nav className="header-utilities" aria-label="Main navigation">
+          <nav className="header-utilities" aria-label="main navigation">
             <a className="how-link" href="#how-it-works">
-              How it works
+              rules
             </a>
             <span className="network">
               <span className="status-dot" aria-hidden="true" />
-              Sepolia
+              sepolia
             </span>
             <Wallet open={walletOpen} setOpen={setWalletOpen} />
           </nav>
@@ -314,13 +313,13 @@ export function App() {
         <main>
           <section className="hero" aria-labelledby="hero-title">
             <div className="hero-copy">
-              <h1 id="hero-title">
-                HAMLOCK<span className="hero-dot">.</span>
-              </h1>
-              <p className="hero-description">
-                <strong>Lock your ETH.</strong> It opens when Squeektoshi runs
-                the distance.
-              </p>
+              <h1 id="hero-title">HAMLOCK</h1>
+              <div>
+                <p className="hero-tagline">your bags. his legs.</p>
+                <p className="hero-description">
+                  lock eth. the hamster runs. you get it back. maybe.
+                </p>
+              </div>
             </div>
             <div className="console-grid">
               <section
@@ -329,12 +328,11 @@ export function App() {
                 aria-labelledby="lock-title"
               >
                 <div className="section-heading">
-                  <h2 id="lock-title">Make a jar</h2>
-                  <span className="small muted">Sepolia ETH only</span>
+                  <h2 id="lock-title">lock a bag</h2>
                 </div>
                 <form onSubmit={submitLock} noValidate>
                   <div className="distance-heading">
-                    <label htmlFor="distance">Distance to unlock</label>
+                    <label htmlFor="distance">km to unlock</label>
                     <output className="distance-value" htmlFor="distance">
                       {km ?? "—"}
                       <span> km</span>
@@ -371,10 +369,10 @@ export function App() {
                         : "—"}{" "}
                       work units
                     </span>
-                    <span>A typical active night is about 10 km.</span>
+                    {" · he does ~10 km on a good night"}
                   </p>
                   <label className="amount-label" htmlFor="amount">
-                    Amount to lock
+                    how much
                   </label>
                   <div
                     className={`amount-field${amountError ? " invalid" : ""}`}
@@ -397,19 +395,15 @@ export function App() {
                         amountError ? "amount-error amount-help" : "amount-help"
                       }
                       placeholder={
-                        limits ? eth(limits.minDeposit) : "ETH amount"
+                        limits ? eth(limits.minDeposit) : "eth amount"
                       }
                     />
-                    <span className="mono">ETH</span>
+                    <span className="mono">eth</span>
                   </div>
                   <p id="amount-help" className="small muted">
                     {limits
-                      ? `${eth(limits.minDeposit)}–${eth(limits.maxDeposit)} ETH`
-                      : "Reading deposit limits…"}
-                    <span className="amount-extra">
-                      {" "}
-                      · Testnet ETH with no real value.
-                    </span>
+                      ? `${eth(limits.minDeposit)}–${eth(limits.maxDeposit)} sepolia eth. testnet. zero real value.`
+                      : "reading limits…"}
                   </p>
                   {amountError && (
                     <p id="amount-error" className="error small" role="alert">
@@ -429,120 +423,43 @@ export function App() {
                     <span>
                       {busy && tx.action === "lock"
                         ? tx.phase === "wallet"
-                          ? "Confirm in your wallet…"
-                          : "Locking your ETH…"
+                          ? "confirm in wallet…"
+                          : "locking…"
                         : hasJar
-                          ? "You already have a jar"
-                          : "Lock ETH"}
+                          ? "already locked. sit tight."
+                          : "LOCK IT"}
                     </span>
                     <span aria-hidden="true">↗</span>
                   </button>
-                  <p className="lock-caption small muted">
-                    {hasJar
-                      ? "Open or break your current jar to make another."
-                      : "Pick the distance. The hamster does the rest."}
-                  </p>
                 </form>
                 {limitsQuery.isError && (
                   <div className="inline-error" role="status">
-                    <p>
-                      Contract limits could not load. Check your connection.
-                    </p>
+                    <p>contract reads failed.</p>
                     <button
                       className="text-button"
                       onClick={() => limitsQuery.refetch()}
                     >
-                      Retry contract reads ↻
+                      retry contract reads ↻
                     </button>
                   </div>
                 )}
                 {isConnected && !correctChain && (
-                  <p className="small warning">
-                    Switch to Sepolia with the wallet control above.
-                  </p>
+                  <p className="small warning">switch to sepolia above.</p>
                 )}
                 {coreUnavailable && (
                   <p className="small warning">
-                    Settled hamster data is unavailable. New locks are paused by
-                    the contract; deadline openings still work.
+                    settlement offline. new locks paused. deadline cash-outs
+                    still work.
                   </p>
                 )}
               </section>
-              <section
-                className="hamster-panel"
-                aria-label="Squeektoshi’s wheel"
-              >
-                <div className="hamster-scene">
-                  <img
-                    src="./hamster.svg"
-                    width="400"
-                    height="300"
-                    alt="Pixel art of a small hamster inside a large running wheel"
-                  />
-                  <span className="scene-corner top-left" aria-hidden="true" />
-                  <span
-                    className="scene-corner bottom-right"
-                    aria-hidden="true"
-                  />
-                </div>
-                <div className="hamster-readout">
-                  <div>
-                    <h2>Squeektoshi</h2>
-                    <p className="small muted">Your very small lock keeper.</p>
-                  </div>
-                  <div className="telemetry">
-                    <span
-                      className={`telemetry-status${live ? "" : " unavailable"}`}
-                    >
-                      <span className="status-dot" aria-hidden="true" />
-                      {live?.status ??
-                        (telemetry.isPending
-                          ? "Connecting…"
-                          : "Live unavailable")}
-                    </span>
-                    <span className="mono small">
-                      {live
-                        ? live.rpm.toLocaleString("en-US", {
-                            maximumFractionDigits: 3,
-                          })
-                        : "—"}{" "}
-                      rpm
-                    </span>
-                  </div>
-                </div>
-                <div className="hamster-footer">
-                  <a
-                    href="https://x.com/squeekchain"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Watch the livestream <Arrow />
-                  </a>
-                  <span className="small muted">
-                    {live
-                      ? "Live wheel telemetry"
-                      : "Showing settled data only"}
-                  </span>
-                </div>
-              </section>
-            </div>
-            <div className="hero-footnote">
-              <span>
-                <span className="mini-lock" aria-hidden="true">
-                  ⌑
-                </span>{" "}
-                No owner, no admin, just a hamster.
-              </span>
-              <a
-                href={`${EXPLORER}/address/${HAMLOCK}#code`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                View the contract <Arrow />
-              </a>
+              <HamsterCard
+                telemetry={live}
+                pending={telemetry.isPending}
+                now={now}
+              />
             </div>
           </section>
-
           <div
             className={`transaction-message ${tx.phase === "error" ? "error" : ""}`}
             role="status"
@@ -552,9 +469,9 @@ export function App() {
               <>
                 <span>
                   {tx.phase === "wallet"
-                    ? "Checking the transaction. Confirm in your wallet when prompted."
+                    ? "checking. confirm in wallet when prompted."
                     : tx.phase === "pending"
-                      ? "Transaction sent. Waiting for Sepolia confirmation…"
+                      ? "sent. waiting on sepolia…"
                       : tx.message}
                 </span>
                 {tx.hash && (
@@ -563,136 +480,110 @@ export function App() {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    View transaction <Arrow />
+                    view transaction <Arrow />
                   </a>
                 )}
               </>
             )}
           </div>
-
           <section
             className="jar-section"
             aria-labelledby="jar-title"
             id="my-jar"
           >
             <div className="section-heading">
-              <h2 id="jar-title">My jar</h2>
-              <span className="small muted">
-                {address ? short(getAddress(address)) : "Your wallet, your jar"}
-              </span>
+              <h2 id="jar-title">your bag</h2>
+              {address && (
+                <span className="small muted mono">
+                  {short(getAddress(address))}
+                </span>
+              )}
             </div>
             {!isConnected ? (
               <div className="empty-jar">
-                <svg
-                  width="40"
-                  height="48"
-                  viewBox="0 0 40 48"
-                  fill="none"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M12 4h16v7h5v5h3v27H4V16h3v-5h5V4ZM10 11h20M13 24h14M20 18v12"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  />
-                </svg>
-                <div>
-                  <h3>A little patience, bottled.</h3>
-                  <p className="muted">
-                    Connect your wallet to see your jar, its progress, and
-                    rewards.
-                  </p>
-                </div>
+                <p className="muted">connect to see your bag.</p>
                 <button
                   className="secondary"
                   onClick={() => setWalletOpen(true)}
                 >
-                  View my jar <Arrow />
+                  connect <Arrow />
                 </button>
               </div>
             ) : jarQuery.isPending ? (
-              <p className="state-message muted">
-                Reading your jar from Sepolia…
-              </p>
+              <p className="state-message muted">reading your bag…</p>
             ) : jarQuery.isError && !jarState ? (
               <div className="state-message">
-                <p className="warning">
-                  Your jar could not load. No funds have moved.
-                </p>
+                <p className="warning">bag read failed. no transaction sent.</p>
                 <button
                   className="text-button"
                   onClick={() => jarQuery.refetch()}
                 >
-                  Retry jar reads ↻
+                  retry bag reads ↻
                 </button>
               </div>
             ) : !hasJar ? (
               <div className="empty-jar">
-                <div>
-                  <h3>Your next jar starts here.</h3>
-                  <p className="muted">
-                    Choose a distance and lock an amount in the form above.
-                  </p>
-                </div>
                 <a className="secondary" href="#lock">
-                  Make a jar ↑
+                  lock a bag ↑
                 </a>
               </div>
             ) : jar && jarState && progress ? (
               <div className="active-jar">
                 {chain.isError && (
                   <p className="warning small">
-                    Settled reads failed. Progress shows the last successful
-                    chain reading.
+                    settlement read failed. showing the last read.
                   </p>
                 )}
                 {staleJar && (
                   <p className="warning small">
-                    Jar reads failed. Showing the last reading; actions are
-                    paused.{" "}
+                    bag read failed. last read shown. actions paused.{" "}
                     <button
                       className="text-button"
                       onClick={() => jarQuery.refetch()}
                     >
-                      Retry
+                      retry
                     </button>
                   </p>
                 )}
                 <div className="jar-overview">
                   <div>
-                    <span className="muted small">Locked principal</span>
+                    <span className="muted small">locked</span>
                     <p className="amount-value mono">
-                      {eth(jar.amount)} <span>ETH</span>
+                      {eth(jar.amount)} <span>eth</span>
                     </p>
                   </div>
                   <div>
-                    <span className="muted small">Chosen distance</span>
+                    <span className="muted small">km</span>
                     <p className="amount-value mono">
                       {jar.km} <span>km</span>
                     </p>
                   </div>
                   <div>
-                    <span className="muted small">Pending reward</span>
+                    <span className="muted small">
+                      rewards from paper hands
+                    </span>
                     <p className="amount-value mono">
-                      {eth(jarState.reward)} <span>ETH</span>
+                      {eth(jarState.reward)} <span>eth</span>
                     </p>
                   </div>
                 </div>
-                <div className="progress-heading">
-                  <span>
-                    {progress.done === null
-                      ? "Settled progress unavailable"
-                      : `${workKm(progress.done)} km settled`}
-                  </span>
-                  <span className="mono small">
-                    {progress.done === null ? "—" : integer(progress.done)} /{" "}
-                    {integer(progress.target)} work units
-                  </span>
-                </div>
+                <p className="progress-heading small">
+                  {progress.done === null
+                    ? "—"
+                    : workKm(progress.done, limits?.workPerKm)}{" "}
+                  / {jar.km} km settled ·{" "}
+                  {progress.liveDone !== null && progress.done !== null
+                    ? workKm(
+                        progress.liveDone - progress.done,
+                        limits?.workPerKm,
+                      )
+                    : "—"}{" "}
+                  km live, not settled yet
+                </p>
                 <div
                   className="progress-track"
                   role="progressbar"
-                  aria-label="Settled jar progress"
+                  aria-label="settled bag progress"
                   aria-valuenow={
                     progress.done === null ? undefined : progress.settledPercent
                   }
@@ -700,7 +591,7 @@ export function App() {
                   aria-valuemax={100}
                   aria-valuetext={
                     progress.done === null
-                      ? "Settled progress unavailable"
+                      ? "settled progress unavailable"
                       : `${integer(progress.done)} of ${integer(progress.target)} work units settled`
                   }
                 >
@@ -713,41 +604,14 @@ export function App() {
                     style={{ width: `${progress.settledPercent}%` }}
                   />
                 </div>
-                <div className="progress-legend small">
-                  <span>
-                    <i className="settled-key" aria-hidden="true" /> Settled on
-                    Sepolia
-                  </span>
-                  {live && progress.liveDone !== null && (
-                    <span>
-                      <i className="live-key" aria-hidden="true" />{" "}
-                      {workKm(progress.liveDone)} km live, not yet settled
-                    </span>
-                  )}
-                </div>
-                <p className="small muted">
-                  {integer(jarState.remaining)} work units remaining ·{" "}
-                  {workKm(jarState.remaining)} km. Distance is work × 0.878 /
-                  1,000.
-                </p>
                 <div className="jar-bottom">
-                  <div>
-                    <span className="small muted">Automatic deadline</span>
-                    <p className="countdown mono">
+                  <p className="deadline-line muted small">
+                    auto-unlock in{" "}
+                    <span className="mono countdown">
                       {countdown(jar.deadline, now)}
-                    </p>
-                    <time
-                      className="small muted"
-                      dateTime={new Date(
-                        Number(jar.deadline) * 1000,
-                      ).toISOString()}
-                    >
-                      {new Date(Number(jar.deadline) * 1000).toLocaleString(
-                        "en-US",
-                        { dateStyle: "medium", timeStyle: "short" },
-                      )}
-                    </time>
-                  </div>
+                    </span>
+                    . even hamsters take days off.
+                  </p>
                   <div className="jar-actions">
                     <button
                       className="primary"
@@ -757,9 +621,9 @@ export function App() {
                     >
                       {busy && tx.action === "open"
                         ? tx.phase === "wallet"
-                          ? "Confirm in wallet…"
-                          : "Opening…"
-                        : "Open jar"}{" "}
+                          ? "confirm in wallet…"
+                          : "cashing out…"
+                        : "CASH OUT"}{" "}
                       <Arrow />
                     </button>
                     <button
@@ -771,15 +635,10 @@ export function App() {
                       }}
                       disabled={!canTransact || jarState.openable}
                     >
-                      Break early
+                      PAPER HAND IT (-{penaltyPercent ?? "…"}%)
                     </button>
                   </div>
                 </div>
-                <p className="small muted">
-                  {jarState.openable
-                    ? "Ready to open. Your principal and pending reward are returned together."
-                    : "Open when the settled distance is reached or the deadline passes."}
-                </p>
                 {shareKm !== undefined && shareKm !== null && (
                   <a
                     className="share-link"
@@ -787,7 +646,7 @@ export function App() {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    Share on X <Arrow />
+                    share on x <Arrow />
                   </a>
                 )}
               </div>
@@ -799,25 +658,24 @@ export function App() {
                 target="_blank"
                 rel="noreferrer"
               >
-                Share on X <Arrow />
+                share on x <Arrow />
               </a>
             )}
           </section>
-
           <section className="stats-section" aria-labelledby="stats-title">
             <div className="section-heading">
-              <h2 id="stats-title">The patience pool</h2>
+              <h2 id="stats-title">the pot</h2>
               <div className="read-status small muted">
                 {chain.isError
-                  ? "Reads unavailable"
+                  ? "reads offline"
                   : chain.data
-                    ? `Block ${integer(chain.data.block)}`
-                    : "Reading Sepolia…"}
+                    ? `block ${integer(chain.data.block)}`
+                    : "reading sepolia…"}
                 <button
                   className="refresh-button"
                   onClick={() => chain.refetch()}
                   disabled={chain.isFetching}
-                  aria-label="Refresh pool stats"
+                  aria-label="refresh pot stats"
                 >
                   ↻
                 </button>
@@ -826,24 +684,24 @@ export function App() {
             <dl className="stats-grid">
               {[
                 [
-                  "Total locked",
+                  "locked",
                   chain.data ? eth(chain.data.totalLocked) : "—",
-                  "ETH",
+                  "eth",
                 ],
                 [
-                  "Active jars",
+                  "bags",
                   chain.data ? integer(chain.data.activeJars) : "—",
-                  "jars",
+                  "bags",
                 ],
                 [
-                  "Total penalties",
+                  "paper hand tax",
                   chain.data ? eth(chain.data.totalPenalties) : "—",
-                  "ETH",
+                  "eth",
                 ],
                 [
-                  "Total burned",
+                  "burned",
                   chain.data ? eth(chain.data.totalBurned) : "—",
-                  "ETH",
+                  "eth",
                 ],
               ].map(([label, value, unit]) => (
                 <div className="stat" key={label}>
@@ -857,37 +715,30 @@ export function App() {
             </dl>
             {chain.isError && (
               <p className="warning small">
-                {chain.data
-                  ? "Showing the last successful reading."
-                  : "No stats available yet."}{" "}
-                Public RPCs may be busy. Use refresh to retry.
+                {chain.data ? "last read shown." : "stats unavailable."} refresh
+                to retry.
               </p>
             )}
           </section>
-
           <section
             className="leaderboard-section"
             aria-labelledby="leaderboard-title"
           >
             <div className="section-heading">
-              <h2 id="leaderboard-title">The long run</h2>
-              <span className="small muted">Leaderboard</span>
+              <h2 id="leaderboard-title">diamond paws</h2>
             </div>
-            <p className="section-intro muted">
-              Ranked by completed kilometres, then completed jars.
-            </p>
             <div className="leaderboard">
               <table>
                 <caption className="sr-only">
-                  Wallets ranked by completed kilometres, then completed jars.
-                  Paper hands counts broken jars.
+                  wallets ranked by km run, then bags completed. paper hands
+                  counts early breaks.
                 </caption>
                 <thead>
                   <tr>
-                    <th scope="col">Wallet</th>
+                    <th scope="col">wallet</th>
                     <th scope="col">km run</th>
-                    <th scope="col">Jars</th>
-                    <th scope="col">Paper hands</th>
+                    <th scope="col">bags</th>
+                    <th scope="col">paper hands</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -903,7 +754,7 @@ export function App() {
                             className="mono"
                             href={`${EXPLORER}/address/${score.owner}`}
                             title={getAddress(score.owner)}
-                            aria-label={`Wallet ${getAddress(score.owner)} on Etherscan`}
+                            aria-label={`wallet ${getAddress(score.owner)} on etherscan`}
                             target="_blank"
                             rel="noreferrer"
                           >
@@ -918,40 +769,31 @@ export function App() {
                 </tbody>
               </table>
               {leaderboard.isPending ? (
-                <p className="leaderboard-state muted">
-                  Scanning the contract’s Opened events…
-                </p>
+                <p className="leaderboard-state muted">scanning runs…</p>
               ) : leaderboard.isError && !leaderboard.data ? (
                 <div className="leaderboard-state">
-                  <p className="warning">The event history could not load.</p>
+                  <p className="warning">history read failed.</p>
                   <button
                     className="text-button"
                     onClick={() => leaderboard.refetch()}
                   >
-                    Retry leaderboard ↻
+                    retry leaderboard ↻
                   </button>
                 </div>
               ) : !leaderboard.data?.scores.length ? (
-                <div className="leaderboard-state">
-                  <span className="pixel-star" aria-hidden="true">
-                    ✳
-                  </span>
-                  <h3>The first finish is still ahead.</h3>
-                  <p className="muted">
-                    No hamster-completed jars yet. Lock a jar and start your
-                    run.
-                  </p>
-                </div>
+                <p className="leaderboard-state muted">
+                  nobody's finished a run yet. be first.
+                </p>
               ) : null}
             </div>
             <div className="leaderboard-footer small muted">
               <span>
-                From Opened events since block{" "}
+                events from block{" "}
                 <span className="mono">{integer(DEPLOYMENT_BLOCK)}</span>.
               </span>
               {leaderboard.data && (
                 <span>
-                  Scanned through{" "}
+                  through{" "}
                   <span className="mono">
                     {integer(leaderboard.data.through)}
                   </span>
@@ -961,12 +803,12 @@ export function App() {
             </div>
             {leaderboard.isError && leaderboard.data && (
               <p className="warning small">
-                Leaderboard refresh failed. Showing the last completed scan.{" "}
+                refresh failed. last scan shown.{" "}
                 <button
                   className="text-button"
                   onClick={() => leaderboard.refetch()}
                 >
-                  Retry
+                  retry
                 </button>
               </p>
             )}
@@ -977,7 +819,7 @@ export function App() {
                   disabled={leaderPage === 0}
                   onClick={() => setLeaderPage((value) => value - 1)}
                 >
-                  ← Previous
+                  ← previous
                 </button>
                 <span className="small">
                   {leaderPage + 1} /{" "}
@@ -990,103 +832,71 @@ export function App() {
                   }
                   onClick={() => setLeaderPage((value) => value + 1)}
                 >
-                  Next →
+                  next →
                 </button>
               </div>
             )}
           </section>
-
           <section
             className="rules-section"
             id="how-it-works"
             aria-labelledby="rules-title"
           >
             <div className="rules-heading">
-              <h2 id="rules-title">
-                Small hamster.
-                <br />
-                Simple rules.
-              </h2>
-              <p className="muted">A time lock that runs on tiny feet.</p>
+              <h2 id="rules-title">rules</h2>
             </div>
-            <div className="rules-list">
-              <div>
-                <h3>Pick your patience.</h3>
-                <p className="muted">
-                  Lock{" "}
+            <ol className="rules-list">
+              <li>
+                <p>
+                  lock{" "}
                   {limits
                     ? `${eth(limits.minDeposit)}–${eth(limits.maxDeposit)}`
-                    : "…"}{" "}
-                  Sepolia ETH for{" "}
-                  {limits ? `${limits.minKm}–${limits.maxKm}` : "…"} km.
-                  Distance starts counting when you lock, not from Squeektoshi’s
-                  lifetime total. One jar per wallet.
+                    : "—"}{" "}
+                  sepolia eth. pick{" "}
+                  {limits ? `${limits.minKm}–${limits.maxKm}` : "—"} km.
                 </p>
-              </div>
-              <div>
-                <h3>Let Squeektoshi run.</h3>
-                <p className="muted">
-                  Your jar opens when your chosen distance settles on Sepolia.
-                  After {limits ? integer(limits.duration / 86400n) : "…"} days
-                  it opens anyway, even if the hamster takes a holiday. Opening
-                  returns your principal plus rewards.
+              </li>
+              <li>
+                <p>
+                  the counter starts when you lock. when squeektoshi runs your
+                  km, you cash out.
                 </p>
-              </div>
-              <div>
-                <h3>Break early, share the cost.</h3>
-                <p className="muted">
-                  Breaking returns {refundPercent ?? "…"}% of your deposit. The{" "}
-                  {penaltyPercent ?? "…"}% penalty and all your earned rewards
-                  go to everyone still holding, in proportion to their deposits.
-                  If nobody remains, they are burned.
+              </li>
+              <li>
+                <p>
+                  break early = you lose {penaltyPercent ?? "—"}%. it goes to
+                  whoever's still holding. nobody left? burned.
                 </p>
-              </div>
-              <div>
-                <h3>No one holds the keys.</h3>
-                <p className="muted">
-                  No owner, no admin, no overrides. The contract holds your jar;
-                  only your wallet can open or break it.
+              </li>
+              <li>
+                <p>
+                  {limits ? integer(limits.duration / 86400n) : "—"} days max.
+                  then it opens anyway.
                 </p>
-              </div>
-            </div>
+              </li>
+              <li>
+                <p>no owner. no admin. just a hamster.</p>
+              </li>
+            </ol>
           </section>
         </main>
         <footer className="site-footer">
-          <div>
-            <a className="brand" href="#">
-              <img src="./favicon.svg" width="24" height="24" alt="" />
-              HAMLOCK.
-            </a>
-            <p className="small muted">
-              Sepolia testnet game. No real value.
-              <br />
-              Not affiliated with Squeekchain.
-            </p>
-          </div>
-          <nav aria-label="Project links">
+          <p className="small muted">
+            testnet toy. zero real value. not affiliated with squeekchain. it's
+            a hamster, dyor.
+          </p>
+          <nav aria-label="project links">
             <a
-              href={`${EXPLORER}/address/${HAMLOCK}`}
+              href={`${EXPLORER}/address/${HAMLOCK}#code`}
               target="_blank"
               rel="noreferrer"
             >
-              Contract <Arrow />
+              contract <Arrow />
             </a>
             <a href={SOURCE} target="_blank" rel="noreferrer">
-              GitHub source <Arrow />
-            </a>
-            <a
-              href="https://x.com/squeekchain"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Squeekchain <Arrow />
+              source <Arrow />
             </a>
           </nav>
-          <span className="footer-signoff small muted">
-            Powered by a hamster.
-            <br />
-            Held together by patience.
-          </span>
         </footer>
       </div>
       <Modal
@@ -1094,32 +904,16 @@ export function App() {
         onClose={() => {
           if (!busy) setBreakOpen(false);
         }}
-        title="Break your jar?"
+        title="paper hand it?"
       >
-        <p className="muted">
-          This closes your jar early. You lose part of your deposit and all
-          pending rewards.
-        </p>
         {previewBreak && (
-          <dl className="break-summary">
-            <div>
-              <dt>You receive ({refundPercent}%)</dt>
-              <dd className="mono">{eth(previewBreak.refund)} ETH</dd>
-            </div>
-            <div>
-              <dt>Deposit penalty ({penaltyPercent}%)</dt>
-              <dd className="mono">{eth(previewBreak.penalty)} ETH</dd>
-            </div>
-            <div>
-              <dt>Reward forfeited</dt>
-              <dd className="mono">{eth(previewBreak.forfeited)} ETH</dd>
-            </div>
-          </dl>
+          <p className="break-copy">
+            you get <span className="mono">{eth(previewBreak.refund)}</span> eth
+            back. <span className="mono">{eth(previewBreak.penalty)}</span> +{" "}
+            <span className="mono">{eth(previewBreak.forfeited)}</span> goes to
+            the people with spines. sure?
+          </p>
         )}
-        <p className="small muted">
-          Amounts exclude the network fee. Rewards can change before
-          confirmation. The contract calculates the final amount when mined.
-        </p>
         {tx.phase === "idle" && tx.message && (
           <p className="warning small" role="status">
             {tx.message}
@@ -1137,7 +931,7 @@ export function App() {
             disabled={busy}
             onClick={() => setBreakOpen(false)}
           >
-            Keep my jar
+            nvm
           </button>
           <button
             className="danger-solid"
@@ -1145,7 +939,7 @@ export function App() {
             disabled={!canTransact || !previewBreak}
             onClick={() => transact("breakJar")}
           >
-            {busy ? "Confirm in wallet…" : `Break jar, lose ${penaltyPercent}%`}
+            {busy ? "confirm in wallet…" : "do it"}
           </button>
         </div>
       </Modal>

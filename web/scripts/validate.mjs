@@ -60,6 +60,19 @@ const baseState = () => ({
   rpmMilli: 13500,
   coreStatus: "SPINNING",
   apiDown: false,
+  broadcast: {
+    schemaVersion: 2,
+    state: "idle",
+    playback: { kind: "canonical-hls" },
+    validUntil: null,
+  },
+  schedule: {
+    occurrence: { startAt: new Date(Date.now() + 3600000).toISOString() },
+  },
+  streamDown: false,
+  scheduleDown: false,
+  streamRequests: [],
+  embedRequests: [],
   apiStale: false,
   rejectSimulation: null,
   rpcDown: false,
@@ -243,6 +256,7 @@ async function setup(browser, state = baseState(), options = {}) {
     ...options.context,
   });
   const page = await context.newPage();
+  page.setDefaultTimeout(8000);
   const errors = [],
     missing = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -304,6 +318,27 @@ async function setup(browser, state = baseState(), options = {}) {
         state.reward = 0n;
       }
       return route.fulfill({ json: { hash: txHash } });
+    }
+    if (url.includes("hamlock-live.jubilee-registry.workers.dev")) {
+      state.streamRequests.push({ url, at: Date.now() });
+      if (url.endsWith("/schedule"))
+        return route.fulfill({
+          status: state.scheduleDown ? 503 : 200,
+          json: state.scheduleDown
+            ? { error: "fixture outage" }
+            : state.schedule,
+        });
+      return route.fulfill({
+        status: state.streamDown ? 503 : 200,
+        json: state.streamDown ? { error: "fixture outage" } : state.broadcast,
+      });
+    }
+    if (/studio\.x\.com|youtube-nocookie\.com|player\.twitch\.tv/.test(url)) {
+      state.embedRequests.push(url);
+      return route.fulfill({
+        contentType: "text/html",
+        body: '<!doctype html><html lang="en"><head><title>provider fixture</title></head><body><main><p>stream fixture</p></main></body></html>',
+      });
     }
     if (url.includes("api.squeekchain.com")) {
       if (state.apiDown)
@@ -444,7 +479,11 @@ async function setup(browser, state = baseState(), options = {}) {
         const announce = () => {
           for (const [rdns, name, uuid] of [
             ["io.metamask", "MetaMask", id],
-            ["io.rabby", "Rabby", id.replace(/.$/, "1")],
+            [
+              "io.rabby",
+              "Rabby",
+              id.replace(/.$/, (last) => (last === "1" ? "2" : "1")),
+            ],
           ])
             window.dispatchEvent(
               new CustomEvent("eip6963:announceProvider", {
@@ -468,7 +507,7 @@ async function setup(browser, state = baseState(), options = {}) {
   if (options.clock) await page.clock.install();
   await page.goto(preview.url);
   await page
-    .getByRole("button", { name: "Lock ETH", exact: true })
+    .getByRole("button", { name: "LOCK IT", exact: true })
     .waitFor({ state: "visible" });
   if (options.waitLimits !== false)
     await page.waitForFunction(
@@ -483,10 +522,8 @@ async function setup(browser, state = baseState(), options = {}) {
     close: () => context.close(),
   };
 }
-async function connect(page, name = "MetaMask") {
-  await page
-    .getByRole("button", { name: "Connect wallet", exact: true })
-    .click();
+async function connect(page, name = "metamask") {
+  await page.locator(".wallet-control").click();
   await page.getByRole("button", { name: new RegExp(`^${name}`) }).click();
   await page.getByRole("dialog").waitFor({ state: "hidden" });
 }
@@ -516,6 +553,648 @@ const preview = await serveExport(resolve(root, "dist"));
 let browser;
 try {
   browser = await chromium.launch({ headless: true });
+  await check(
+    "Exact degen copy, five rules and contract-derived limits",
+    async () => {
+      const s = await setup(browser);
+      try {
+        assert.equal(await s.page.locator("h1").textContent(), "HAMLOCK");
+        assert.equal(
+          await s.page.locator(".hero-tagline").textContent(),
+          "your bags. his legs.",
+        );
+        assert.equal(
+          await s.page.locator(".hero-description").textContent(),
+          "lock eth. the hamster runs. you get it back. maybe.",
+        );
+        assert.equal(
+          await s.page.locator("#amount-help").textContent(),
+          "0.001–1 sepolia eth. testnet. zero real value.",
+        );
+        assert.deepEqual(
+          await s.page.locator(".rules-list p").allTextContents(),
+          [
+            "lock 0.001–1 sepolia eth. pick 1–100 km.",
+            "the counter starts when you lock. when squeektoshi runs your km, you cash out.",
+            "break early = you lose 20%. it goes to whoever's still holding. nobody left? burned.",
+            "30 days max. then it opens anyway.",
+            "no owner. no admin. just a hamster.",
+          ],
+        );
+        await s.page
+          .getByText("nobody's finished a run yet. be first.", { exact: true })
+          .waitFor();
+        assert.equal(
+          await s.page.locator(".site-footer p").textContent(),
+          "testnet toy. zero real value. not affiliated with squeekchain. it's a hamster, dyor.",
+        );
+        assert(
+          !/little|tiny feet|bottled|simple rules|patience pool|lock keeper/i.test(
+            await s.page.locator("body").innerText(),
+          ),
+        );
+      } finally {
+        await s.close();
+      }
+    },
+  );
+  await check(
+    "Off-air schedule uses the visitor's local time; wheel stats remain independent",
+    async () => {
+      const state = baseState();
+      state.coreStatus = "IDLE";
+      const s = await setup(browser, state, {
+        context: { timezoneId: "America/Los_Angeles" },
+      });
+      try {
+        await s.page.getByText("ASLEEP. COPE.", { exact: true }).waitFor();
+        await s.page.locator(".off-air-details time").waitFor();
+        assert.equal(
+          await s.page.locator(".broadcast-badge").textContent(),
+          "OFF AIR",
+        );
+        assert.equal(
+          await s.page
+            .locator(".off-air-details time")
+            .getAttribute("datetime"),
+          state.schedule.occurrence.startAt,
+        );
+        const localTime = await s.page.evaluate(
+          (date) =>
+            new Date(date).toLocaleTimeString(undefined, {
+              hour: "2-digit",
+              minute: "2-digit",
+              hourCycle: "h23",
+            }),
+          state.schedule.occurrence.startAt,
+        );
+        assert.equal(
+          await s.page.locator(".off-air-details time").textContent(),
+          localTime,
+        );
+        assert.equal(
+          await s.page.locator(".telemetry-status").textContent(),
+          "IDLE",
+        );
+        assert.equal(
+          await s.page
+            .getByRole("link", { name: "follow on x" })
+            .getAttribute("href"),
+          "https://x.com/squeekchain",
+        );
+        assert.equal(await s.page.locator("iframe").count(), 0);
+        assert.equal(state.embedRequests.length, 0);
+        return {
+          timeZone: "America/Los_Angeles",
+          localTime,
+          source: "schedule.occurrence.startAt",
+        };
+      } finally {
+        await s.close();
+      }
+    },
+  );
+  await check(
+    "X, YouTube and Twitch play on click, keep 16:9 and close back to art with focus",
+    async () => {
+      const coverage = [];
+      for (const [playback, expected] of [
+        [
+          { kind: "x", broadcastId: "AbCd123456789" },
+          "https://studio.x.com/embed/broadcast/AbCd123456789?dnt=true",
+        ],
+        [
+          { kind: "youtube", publicId: "aB_09-cD123" },
+          "https://www.youtube-nocookie.com/embed/aB_09-cD123?autoplay=1&mute=1",
+        ],
+        [{ kind: "twitch", publicId: "hamlock_live" }, null],
+      ]) {
+        const state = baseState();
+        state.broadcast = {
+          schemaVersion: 2,
+          state: "live",
+          playback,
+          validUntil: new Date(Date.now() + 120000).toISOString(),
+        };
+        const s = await setup(browser, state);
+        try {
+          const watch = s.page.getByRole("button", {
+            name: "WATCH LIVE",
+            exact: true,
+          });
+          await watch.waitFor();
+          assert.equal(
+            await s.page.locator(".broadcast-badge").textContent(),
+            "LIVE",
+          );
+          assert.equal(await s.page.locator("iframe").count(), 0);
+          assert.equal(state.embedRequests.length, 0);
+          await watch.focus();
+          await s.page.keyboard.press("Enter");
+          const player = s.page.getByTitle("squeektoshi live", { exact: true });
+          await player.waitFor();
+          const hostname = new URL(preview.url).hostname;
+          assert.equal(
+            await player.getAttribute("src"),
+            expected ??
+              `https://player.twitch.tv/?channel=hamlock_live&parent=${hostname}&muted=true`,
+          );
+          assert.equal(await s.page.locator(".hamster-scene img").count(), 0);
+          const close = s.page.getByRole("button", {
+            name: "close player",
+            exact: true,
+          });
+          assert(await close.evaluate((el) => el === document.activeElement));
+          for (const width of [320, 390, 800, 1440]) {
+            await s.page.setViewportSize({ width, height: 900 });
+            const box = await player.boundingBox();
+            assert(
+              Math.abs(box.width / box.height - 16 / 9) < 0.01,
+              `ratio at ${width}`,
+            );
+            assert(
+              await s.page.evaluate(
+                () => document.documentElement.scrollWidth <= innerWidth,
+              ),
+            );
+          }
+          if (playback.kind === "x") {
+            await s.page.screenshot({
+              path: resolve(outputDir, "1440-player-fixture.png"),
+              fullPage: true,
+            });
+            await s.page.setViewportSize({ width: 390, height: 844 });
+            await s.page.locator(".hamster-panel").screenshot({
+              path: resolve(outputDir, "390-player-fixture.png"),
+            });
+          }
+          await close.focus();
+          await s.page.keyboard.press("Enter");
+          assert.equal(await player.count(), 0);
+          assert.equal(await s.page.locator(".hamster-scene img").count(), 1);
+          assert(await watch.evaluate((el) => el === document.activeElement));
+          assert.deepEqual(s.errors, []);
+          assert.deepEqual(s.missing, []);
+          coverage.push(playback.kind);
+        } finally {
+          await s.close();
+        }
+      }
+      return {
+        coverage,
+        responsiveWidths: [320, 390, 800, 1440],
+        thirdPartyContent:
+          "intercepted provider fixture; no claim of real video playback",
+      };
+    },
+  );
+  await check(
+    "Every invalid provider identifier is refused before an iframe can be built",
+    async () => {
+      const state = baseState();
+      const invalid = [
+        { kind: "x", broadcastId: "A".repeat(12) },
+        { kind: "x", broadcastId: "A".repeat(17) },
+        { kind: "x", broadcastId: "abcdefghijk_l" },
+        { kind: "x", broadcastId: "abcdefghijklm\n" },
+        { kind: "x", broadcastId: 1234567890123 },
+        { kind: "x", publicId: "AbCd123456789" },
+        { kind: "youtube", publicId: "A".repeat(10) },
+        { kind: "youtube", publicId: "A".repeat(12) },
+        { kind: "youtube", publicId: "abcdefghij/" },
+        { kind: "youtube", publicId: "abcdefghijk\n" },
+        { kind: "youtube", publicId: null },
+        { kind: "twitch", publicId: "abc" },
+        { kind: "twitch", publicId: "a".repeat(26) },
+        { kind: "twitch", publicId: "UpperCase" },
+        { kind: "twitch", publicId: "hamlock&parent=evil" },
+        { kind: "twitch", publicId: "hamlock\n" },
+        { kind: "twitch", publicId: {} },
+        { kind: "canonical-hls", url: "https://evil.example/stream" },
+        { kind: "javascript:alert(1)", publicId: "abcdefghijk" },
+        {},
+      ];
+      const s = await setup(browser, state);
+      try {
+        for (const playback of invalid) {
+          state.broadcast = {
+            schemaVersion: 2,
+            state: "live",
+            playback,
+            validUntil: new Date(Date.now() + 120000).toISOString(),
+          };
+          await s.page.reload();
+          await s.page
+            .getByRole("link", { name: "watch on x", exact: true })
+            .waitFor();
+          assert.equal(
+            await s.page.locator("iframe").count(),
+            0,
+            JSON.stringify(playback),
+          );
+          assert.equal(
+            await s.page
+              .getByRole("button", { name: "WATCH LIVE", exact: true })
+              .count(),
+            0,
+          );
+        }
+        assert.equal(state.embedRequests.length, 0);
+        return { refusedCases: invalid.length };
+      } finally {
+        await s.close();
+      }
+    },
+  );
+  await check("Valid provider ID boundaries are accepted", async () => {
+    const state = baseState();
+    const s = await setup(browser, state);
+    const cases = [
+      { kind: "x", broadcastId: "A".repeat(13) },
+      { kind: "x", broadcastId: "9".repeat(16) },
+      { kind: "youtube", publicId: "_".repeat(11) },
+      { kind: "twitch", publicId: "a_09" },
+      { kind: "twitch", publicId: "a".repeat(25) },
+    ];
+    try {
+      for (const playback of cases) {
+        state.broadcast = {
+          schemaVersion: 2,
+          state: "live",
+          playback,
+          validUntil: new Date(Date.now() + 120000).toISOString(),
+        };
+        await s.page.reload();
+        await s.page
+          .getByRole("button", { name: "WATCH LIVE", exact: true })
+          .click();
+        await s.page.locator(".broadcast-player").waitFor();
+      }
+      return { acceptedCases: cases.length };
+    } finally {
+      await s.close();
+    }
+  });
+  await check(
+    "Only live state with a future validUntil enables watching",
+    async () => {
+      const state = baseState();
+      const s = await setup(browser, state);
+      const future = new Date(Date.now() + 120000).toISOString();
+      const cases = [
+        ...["idle", "starting", "ending", "error"].map((state) => ({
+          state,
+          validUntil: future,
+        })),
+        { state: "live", validUntil: null },
+        {
+          state: "live",
+          validUntil: new Date(Date.now() - 1000).toISOString(),
+        },
+      ];
+      try {
+        for (const value of cases) {
+          state.broadcast = {
+            schemaVersion: 2,
+            playback: { kind: "x", broadcastId: "AbCd123456789" },
+            ...value,
+          };
+          await s.page.reload();
+          await s.page.locator(".off-air-details time").waitFor();
+          assert.equal(
+            await s.page.locator(".broadcast-badge").textContent(),
+            "OFF AIR",
+          );
+          assert.equal(
+            await s.page
+              .getByRole("button", { name: "WATCH LIVE", exact: true })
+              .count(),
+            0,
+          );
+          assert.equal(await s.page.locator("iframe").count(), 0);
+        }
+        return { offAirCases: cases.length };
+      } finally {
+        await s.close();
+      }
+    },
+  );
+  await check(
+    "Descriptor expiry removes the player without waiting for another poll",
+    async () => {
+      const state = baseState();
+      state.broadcast = {
+        schemaVersion: 2,
+        state: "live",
+        playback: { kind: "x", broadcastId: "AbCd123456789" },
+        validUntil: new Date(Date.now() + 5000).toISOString(),
+      };
+      const s = await setup(browser, state, { clock: true });
+      try {
+        await s.page
+          .getByRole("button", { name: "WATCH LIVE", exact: true })
+          .click();
+        await s.page.locator("iframe").waitFor();
+        const requests = state.streamRequests.length;
+        await s.page.clock.fastForward(5500);
+        await s.page
+          .locator(".broadcast-badge")
+          .filter({ hasText: "OFF AIR" })
+          .waitFor();
+        assert.equal(await s.page.locator("iframe").count(), 0);
+        assert.equal(await s.page.locator(".hamster-scene img").count(), 1);
+        assert.equal(state.streamRequests.length, requests);
+        assert.equal(
+          await s.page.locator(".telemetry-status").textContent(),
+          "SPINNING",
+        );
+      } finally {
+        await s.close();
+      }
+    },
+  );
+  await check(
+    "Both endpoints poll every 30 seconds only while visible; visibility return refreshes immediately",
+    async () => {
+      const s = await setup(browser, baseState(), { clock: true });
+      try {
+        await s.page.locator(".off-air-details time").waitFor();
+        const initial = s.state.streamRequests.length;
+        await s.page.clock.fastForward(29000);
+        assert.equal(s.state.streamRequests.length, initial);
+        await s.page.clock.fastForward(1100);
+        await s.page.waitForFunction(
+          () => document.querySelector(".off-air-details time") !== null,
+        );
+        assert.equal(s.state.streamRequests.length, initial + 2);
+        await s.page.evaluate(() => {
+          window.__visibility = "hidden";
+          Object.defineProperty(document, "visibilityState", {
+            configurable: true,
+            get: () => window.__visibility,
+          });
+          document.dispatchEvent(new Event("visibilitychange"));
+        });
+        const beforeHidden = s.state.streamRequests.length;
+        await s.page.clock.fastForward(90000);
+        assert.equal(s.state.streamRequests.length, beforeHidden);
+        s.state.broadcast = {
+          schemaVersion: 2,
+          state: "live",
+          playback: { kind: "youtube", publicId: "aB_09-cD123" },
+          validUntil: new Date(Date.now() + 600000).toISOString(),
+        };
+        await s.page.evaluate(() => {
+          window.__visibility = "visible";
+          document.dispatchEvent(new Event("visibilitychange"));
+        });
+        await s.page
+          .getByRole("button", { name: "WATCH LIVE", exact: true })
+          .waitFor();
+        assert.equal(s.state.streamRequests.length, beforeHidden + 2);
+        const current = s.state.streamRequests.filter((r) =>
+          r.url.endsWith("/current"),
+        ).length;
+        const schedule = s.state.streamRequests.filter((r) =>
+          r.url.endsWith("/schedule"),
+        ).length;
+        assert.equal(current, schedule);
+        return {
+          currentRequests: current,
+          scheduleRequests: schedule,
+          hiddenTimeSimulatedMs: 90000,
+        };
+      } finally {
+        await s.close();
+      }
+    },
+  );
+  await check(
+    "Ending, provider replacement and a failed poll all remove an open player",
+    async () => {
+      for (const mode of ["ending", "replacement", "failed"]) {
+        const state = baseState();
+        state.broadcast = {
+          schemaVersion: 2,
+          state: "live",
+          playback: { kind: "x", broadcastId: "AbCd123456789" },
+          validUntil: new Date(Date.now() + 300000).toISOString(),
+        };
+        const s = await setup(browser, state, { clock: true });
+        try {
+          await s.page
+            .getByRole("button", { name: "WATCH LIVE", exact: true })
+            .click();
+          await s.page.locator("iframe").waitFor();
+          if (mode === "ending") state.broadcast.state = "ending";
+          if (mode === "replacement") {
+            state.broadcast.playback = {
+              kind: "youtube",
+              publicId: "aB_09-cD123",
+            };
+            await s.page.locator("#amount").focus();
+          }
+          if (mode === "failed") state.streamDown = true;
+          await s.page.clock.fastForward(30100);
+          await s.page.locator(".hamster-scene img").waitFor();
+          assert.equal(await s.page.locator("iframe").count(), 0);
+          if (mode === "replacement") {
+            await s.page
+              .getByRole("button", { name: "WATCH LIVE", exact: true })
+              .waitFor();
+            assert(
+              await s.page
+                .locator("#amount")
+                .evaluate((el) => el === document.activeElement),
+            );
+          }
+          if (mode === "failed")
+            await s.page
+              .getByRole("link", { name: "watch on x", exact: true })
+              .waitFor();
+        } finally {
+          await s.close();
+        }
+      }
+    },
+  );
+  await check(
+    "Descriptor failure falls back to X; malformed payloads cannot load an iframe; retry recovers",
+    async () => {
+      const state = baseState();
+      state.streamDown = true;
+      const s = await setup(browser, state, { clock: true });
+      try {
+        const fallback = s.page.getByRole("link", {
+          name: "watch on x",
+          exact: true,
+        });
+        await fallback.waitFor();
+        assert.equal(
+          await fallback.getAttribute("href"),
+          "https://x.com/squeekchain",
+        );
+        await s.page.locator(".off-air-details time").waitFor();
+        assert.equal(
+          await s.page.locator(".telemetry-status").textContent(),
+          "SPINNING",
+        );
+        state.streamDown = false;
+        for (const malformed of [
+          null,
+          [],
+          "not a descriptor",
+          { schemaVersion: 1 },
+          {
+            schemaVersion: 2,
+            state: "unknown",
+            playback: {},
+            validUntil: null,
+          },
+          {
+            schemaVersion: 2,
+            state: "live",
+            playback: {},
+            validUntil: "invalid date",
+          },
+          { schemaVersion: 2, state: "live", playback: null, validUntil: null },
+        ]) {
+          state.broadcast = malformed;
+          await s.page.clock.fastForward(30100);
+          await fallback.waitFor();
+          assert.equal(await s.page.locator("iframe").count(), 0);
+        }
+        state.broadcast = {
+          schemaVersion: 2,
+          state: "live",
+          playback: { kind: "youtube", publicId: "aB_09-cD123" },
+          validUntil: new Date(Date.now() + 3600000).toISOString(),
+        };
+        await s.page.clock.fastForward(30100);
+        await s.page
+          .getByRole("button", { name: "WATCH LIVE", exact: true })
+          .waitFor();
+        assert.equal(await fallback.count(), 0);
+      } finally {
+        await s.close();
+      }
+    },
+  );
+  await check(
+    "Schedule outage or empty occurrence stays unknown and never suppresses a valid live player",
+    async () => {
+      for (const mode of ["outage", "none", "invalid", "live"]) {
+        const state = baseState();
+        state.scheduleDown = mode === "outage" || mode === "live";
+        if (mode === "none") state.schedule = { occurrence: null };
+        if (mode === "invalid")
+          state.schedule = { occurrence: { startAt: "not a date" } };
+        if (mode === "live")
+          state.broadcast = {
+            schemaVersion: 2,
+            state: "live",
+            playback: { kind: "x", broadcastId: "AbCd123456789" },
+            validUntil: new Date(Date.now() + 120000).toISOString(),
+          };
+        const s = await setup(browser, state);
+        try {
+          if (mode === "live") {
+            await s.page
+              .getByRole("button", { name: "WATCH LIVE", exact: true })
+              .click();
+            await s.page.locator("iframe").waitFor();
+          } else {
+            await s.page
+              .getByText("next zoomies: tbd", { exact: true })
+              .waitFor();
+            assert.equal(
+              await s.page.locator(".off-air-details time").count(),
+              0,
+            );
+            assert.equal(
+              await s.page
+                .getByRole("link", { name: "watch on x", exact: true })
+                .count(),
+              0,
+            );
+          }
+        } finally {
+          await s.close();
+        }
+      }
+    },
+  );
+  await check(
+    "Live controls and player pass axe; live and off-air badge contrast is measured",
+    async () => {
+      const state = baseState();
+      const s = await setup(browser, state);
+      const contrast = async () =>
+        s.page.locator(".broadcast-badge").evaluate((el) => {
+          const style = getComputedStyle(el);
+          const luminance = (css) => {
+            const rgb = css
+              .match(/[\d.]+/g)
+              .slice(0, 3)
+              .map(Number)
+              .map((v) => {
+                const n = v / 255;
+                return n <= 0.04045 ? n / 12.92 : ((n + 0.055) / 1.055) ** 2.4;
+              });
+            return rgb[0] * 0.2126 + rgb[1] * 0.7152 + rgb[2] * 0.0722;
+          };
+          const fg = luminance(style.color),
+            bg = luminance(style.backgroundColor);
+          return {
+            label: el.textContent,
+            foreground: style.color,
+            background: style.backgroundColor,
+            ratio: (Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05),
+          };
+        });
+      try {
+        await s.page.locator(".off-air-details time").waitFor();
+        const offAir = await contrast();
+        assert(offAir.ratio >= 4.5);
+        state.broadcast = {
+          schemaVersion: 2,
+          state: "live",
+          playback: { kind: "youtube", publicId: "aB_09-cD123" },
+          validUntil: new Date(Date.now() + 120000).toISOString(),
+        };
+        await s.page.reload();
+        await s.page
+          .getByRole("button", { name: "WATCH LIVE", exact: true })
+          .waitFor();
+        const live = await contrast();
+        assert(live.ratio >= 4.5);
+        for (const playing of [false, true]) {
+          if (playing)
+            await s.page
+              .getByRole("button", { name: "WATCH LIVE", exact: true })
+              .click();
+          const scan = await new AxeBuilder({ page: s.page })
+            .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
+            .analyze();
+          assert.deepEqual(
+            scan.violations.map((v) => ({
+              id: v.id,
+              nodes: v.nodes.map((n) => n.target),
+            })),
+            [],
+          );
+        }
+        return {
+          offAir,
+          live,
+          axeStates: ["live art", "player fixture"],
+          violations: 0,
+        };
+      } finally {
+        await s.close();
+      }
+    },
+  );
   await check(
     "Static subpath assets, metadata, real font loading, mobile first screen",
     async () => {
@@ -560,27 +1239,25 @@ try {
     async () => {
       const s = await setup(browser);
       try {
-        await s.page
-          .getByRole("button", { name: "Connect wallet", exact: true })
-          .focus();
+        await s.page.locator(".wallet-control").focus();
         await s.page.keyboard.press("Enter");
         const dialog = s.page.getByRole("dialog");
         await dialog.waitFor();
         assert.equal(
-          await dialog.getByRole("button", { name: /Browser wallet/ }).count(),
+          await dialog.getByRole("button", { name: /browser wallet/ }).count(),
           0,
         );
         assert.equal(
-          await dialog.getByRole("button", { name: /^MetaMask/ }).count(),
+          await dialog.getByRole("button", { name: /^metamask/ }).count(),
           1,
         );
         assert.equal(
-          await dialog.getByRole("button", { name: /^Rabby/ }).count(),
+          await dialog.getByRole("button", { name: /^rabby/ }).count(),
           1,
         );
         assert.equal(
           await dialog
-            .getByRole("button", { name: /^Coinbase Wallet/ })
+            .getByRole("button", { name: /^coinbase wallet/ })
             .count(),
           1,
         );
@@ -593,13 +1270,13 @@ try {
           );
         }
         await s.page.evaluate(() => window.__wallet.rejectNext());
-        await dialog.getByRole("button", { name: /^MetaMask/ }).click();
-        await dialog.getByText(/Request declined/).waitFor();
+        await dialog.getByRole("button", { name: /^metamask/ }).click();
+        await dialog.getByText(/wallet declined/).waitFor();
         await s.page.keyboard.press("Escape");
         await dialog.waitFor({ state: "hidden" });
         assert(
           await s.page
-            .getByRole("button", { name: "Connect wallet", exact: true })
+            .locator(".wallet-control")
             .evaluate((el) => el === document.activeElement),
         );
       } finally {
@@ -612,15 +1289,13 @@ try {
     async () => {
       const s = await setup(browser, baseState(), { injected: false });
       try {
+        await s.page.locator(".wallet-control").click();
         await s.page
-          .getByRole("button", { name: "Connect wallet", exact: true })
+          .getByRole("button", { name: "browser wallet", exact: true })
           .click();
+        await s.page.getByText(/no browser wallet/).waitFor();
         await s.page
-          .getByRole("button", { name: "Browser wallet", exact: true })
-          .click();
-        await s.page.getByText(/No browser wallet found/).waitFor();
-        await s.page
-          .getByRole("button", { name: "Coinbase Wallet", exact: true })
+          .getByRole("button", { name: "coinbase wallet", exact: true })
           .click();
         // Real Coinbase/passkey flow needs an external account; confirm its SDK loads locally.
         await s.page.waitForTimeout(250);
@@ -648,31 +1323,29 @@ try {
         },
       });
       try {
-        await s.page
-          .getByRole("button", { name: "Connect wallet", exact: true })
-          .click();
-        for (const name of ["MetaMask", "Coinbase Wallet", "Rabby", "Phantom"])
+        await s.page.locator(".wallet-control").click();
+        for (const name of ["metamask", "coinbase wallet", "rabby", "phantom"])
           assert(
             await s.page
-              .getByRole("link", { name: `Open in ${name}` })
+              .getByRole("link", { name: `open in ${name}` })
               .getAttribute("href"),
           );
         assert.equal(
           await s.page
-            .getByRole("button", { name: "Coinbase Smart Wallet", exact: true })
+            .getByRole("button", { name: "coinbase smart wallet", exact: true })
             .count(),
           1,
         );
         assert(
           (
             await s.page
-              .getByRole("link", { name: "Open in Rabby" })
+              .getByRole("link", { name: "open in rabby" })
               .getAttribute("href")
           ).includes("_cmd=open-dapp&dapp="),
         );
         assert.equal(
           await s.page
-            .getByRole("button", { name: "Browser wallet", exact: true })
+            .getByRole("button", { name: "browser wallet", exact: true })
             .count(),
           0,
         );
@@ -694,12 +1367,12 @@ try {
         await connect(s.page);
         assert(
           await s.page
-            .getByRole("button", { name: "Lock ETH", exact: true })
+            .getByRole("button", { name: "LOCK IT", exact: true })
             .isDisabled(),
         );
         await s.page.evaluate(() => (window.__wallet.unknownChain = true));
         await s.page
-          .getByRole("button", { name: "Switch to Sepolia", exact: true })
+          .getByRole("button", { name: "switch to sepolia", exact: true })
           .click();
         await s.page.waitForFunction(() =>
           document.querySelector(".wallet-control")?.textContent.includes("…"),
@@ -722,7 +1395,7 @@ try {
     async () => {
       const s = await setup(browser);
       try {
-        const input = s.page.getByLabel("Amount to lock", { exact: true });
+        const input = s.page.getByLabel("how much", { exact: true });
         for (const value of [
           "0",
           "1.1",
@@ -733,7 +1406,7 @@ try {
         ]) {
           await input.fill(value);
           await s.page
-            .getByRole("button", { name: "Lock ETH", exact: true })
+            .getByRole("button", { name: "LOCK IT", exact: true })
             .click();
           assert.equal(await input.getAttribute("aria-invalid"), "true");
           assert(await input.evaluate((el) => el === document.activeElement));
@@ -754,17 +1427,20 @@ try {
       try {
         await connect(s.page);
         await s.page.locator("#distance").fill("10");
-        await s.page.getByLabel("Amount to lock", { exact: true }).fill("0.01");
+        await s.page.getByLabel("how much", { exact: true }).fill("0.01");
         await s.page
-          .getByRole("button", { name: "Lock ETH", exact: true })
+          .getByRole("button", { name: "LOCK IT", exact: true })
           .click();
         await s.page
-          .getByText("Your jar is locked. Squeektoshi takes it from here.", {
+          .getByText("locked. his problem now.", {
             exact: true,
           })
           .waitFor();
         await s.page
-          .getByRole("button", { name: "You already have a jar", exact: true })
+          .getByRole("button", {
+            name: "already locked. sit tight.",
+            exact: true,
+          })
           .waitFor();
         assert.equal(s.state.sent.length, 1);
         assert.equal(s.state.sent[0].to.toLowerCase(), contract);
@@ -774,16 +1450,16 @@ try {
         assert.equal(call.args[0], 10);
         const share = new URL(
           await s.page
-            .getByRole("link", { name: "Share on X" })
+            .getByRole("link", { name: "share on x" })
             .getAttribute("href"),
         );
         assert.equal(
           share.searchParams.get("text"),
-          "I just trusted my ETH to a hamster. It unlocks when @squeektoshi runs 10 km. #hamlock",
+          "i trusted my eth to a hamster. it unlocks when @squeektoshi runs 10 km. #hamlock",
         );
         assert.equal(share.searchParams.get("url"), preview.url);
         assert(
-          await s.page.getByRole("button", { name: /Open jar/ }).isDisabled(),
+          await s.page.getByRole("button", { name: /CASH OUT/ }).isDisabled(),
         );
         assert.deepEqual(s.errors, []);
       } finally {
@@ -798,20 +1474,23 @@ try {
       try {
         await connect(s.page);
         for (const [error, text] of [
-          ["AlreadyHasJar", "You already have a jar."],
-          ["BadDistance", "That distance is outside"],
-          ["BadDeposit", "That amount is outside"],
-          ["CoreUnavailable", "The hamster’s settled data is unavailable."],
-          ["NoJar", "This wallet has no active jar."],
-          ["StillLocked", "Your jar is still locked."],
-          ["AlreadyOpenable", "Your jar can already be opened"],
-          ["TransferFailed", "The ETH transfer failed."],
+          ["AlreadyHasJar", "already locked. sit tight."],
+          ["BadDistance", "km out of range."],
+          ["BadDeposit", "amount out of range."],
+          ["CoreUnavailable", "settlement offline."],
+          ["NoJar", "no bag here."],
+          ["StillLocked", "still locked."],
+          ["AlreadyOpenable", "already unlocked."],
+          ["TransferFailed", "transfer failed."],
         ]) {
           s.state.rejectSimulation = error;
           await s.page
-            .getByRole("button", { name: "Lock ETH", exact: true })
+            .getByRole("button", { name: "LOCK IT", exact: true })
             .click();
-          await s.page.getByRole("status").filter({ hasText: text }).waitFor();
+          await s.page
+            .locator(".transaction-message")
+            .filter({ hasText: text })
+            .waitFor();
         }
         assert.equal(s.state.sent.length, 0);
       } finally {
@@ -837,11 +1516,11 @@ try {
         ]);
         assert.equal(widths[0], "13.32%");
         assert(Number.parseFloat(widths[1]) > Number.parseFloat(widths[0]));
-        await s.page.getByText(/km live, not yet settled/).waitFor();
+        await s.page.getByText(/km live, not settled yet/).waitFor();
         await s.page.getByText("13.5 rpm", { exact: true }).waitFor();
         assert(
           await s.page
-            .getByRole("button", { name: "Open jar", exact: true })
+            .getByRole("button", { name: "CASH OUT", exact: true })
             .isDisabled(),
         );
         await s.page.screenshot({
@@ -860,34 +1539,32 @@ try {
       try {
         await connect(s.page);
         await s.page
-          .getByRole("button", { name: "Break early", exact: true })
+          .getByRole("button", { name: "PAPER HAND IT (-20%)", exact: true })
           .click();
-        const dialog = s.page.getByRole("dialog", { name: "Break your jar?" });
+        const dialog = s.page.getByRole("dialog", { name: "paper hand it?" });
         await dialog
-          .getByText("0.098765431209876544 ETH", { exact: true })
+          .getByText("0.098765431209876544", { exact: true })
           .waitFor();
         await dialog
-          .getByText("0.024691357802469135 ETH", { exact: true })
+          .getByText("0.024691357802469135", { exact: true })
           .waitFor();
         await dialog
-          .getByText("0.000000000000000019 ETH", { exact: true })
+          .getByText("0.000000000000000019", { exact: true })
           .waitFor();
         await s.page.screenshot({
           path: resolve(outputDir, "390-break-confirmation.png"),
         });
-        await dialog
-          .getByRole("button", { name: "Keep my jar", exact: true })
-          .click();
+        await dialog.getByRole("button", { name: "nvm", exact: true }).click();
         assert.equal(s.state.sent.length, 0);
         assert(s.state.jar[0] > 0n);
         await s.page
-          .getByRole("button", { name: "Break early", exact: true })
+          .getByRole("button", { name: "PAPER HAND IT (-20%)", exact: true })
           .click();
         await dialog
-          .getByRole("button", { name: "Break jar, lose 20%", exact: true })
+          .getByRole("button", { name: "do it", exact: true })
           .click();
         await s.page
-          .getByText("Jar broken. Your refund is on its way to your wallet.", {
+          .getByText("paper handed. refund returned.", {
             exact: true,
           })
           .waitFor();
@@ -908,22 +1585,21 @@ try {
       try {
         await connect(s.page);
         await s.page
-          .getByRole("button", { name: "Break early", exact: true })
+          .getByRole("button", { name: "PAPER HAND IT (-20%)", exact: true })
           .click();
         s.state.reward = parseEther("0.000123");
         await s.page
-          .getByRole("button", { name: "Break jar, lose 20%", exact: true })
+          .getByRole("button", { name: "do it", exact: true })
           .click();
         await s.page
-          .getByText(
-            "Your reward changed. Review the updated amounts before confirming.",
-            { exact: true },
-          )
+          .getByText("rewards changed. check the amounts. confirm again.", {
+            exact: true,
+          })
           .waitFor();
         assert.equal(s.state.sent.length, 0);
         await s.page
-          .getByRole("dialog", { name: "Break your jar?" })
-          .getByText("0.000123 ETH", { exact: true })
+          .getByRole("dialog", { name: "paper hand it?" })
+          .getByText("0.000123", { exact: true })
           .waitFor();
       } finally {
         await s.close();
@@ -941,20 +1617,17 @@ try {
       const s = await setup(browser, state);
       try {
         await connect(s.page);
-        await s.page.getByText("Deadline reached", { exact: true }).waitFor();
+        await s.page.locator(".countdown").filter({ hasText: "0s" }).waitFor();
         assert(
           await s.page
-            .getByRole("button", { name: "Break early", exact: true })
+            .getByRole("button", { name: "PAPER HAND IT (-20%)", exact: true })
             .isDisabled(),
         );
         await s.page
-          .getByRole("button", { name: "Open jar", exact: true })
+          .getByRole("button", { name: "CASH OUT", exact: true })
           .click();
         await s.page
-          .getByText(
-            "Jar opened. Your ETH and rewards are on their way to your wallet.",
-            { exact: true },
-          )
+          .getByText("cashed out. eth and rewards returned.", { exact: true })
           .waitFor();
         assert.equal(
           decodeFunctionData({ abi, data: s.state.sent[0].data }).functionName,
@@ -974,12 +1647,12 @@ try {
         const s = await setup(browser, state);
         try {
           await connect(s.page);
-          await s.page
-            .getByText("Showing settled data only", { exact: true })
-            .waitFor();
+          await s.page.getByText("data offline", { exact: true }).waitFor();
           assert.equal(
-            await s.page.getByText(/km live, not yet settled/).count(),
-            0,
+            await s.page
+              .locator(".live-progress")
+              .evaluate((el) => el.style.width),
+            "0%",
           );
           assert.equal(
             await s.page
@@ -1072,30 +1745,28 @@ try {
       const s = await setup(browser, state, { waitLimits: false });
       try {
         await s.page
-          .getByRole("button", { name: "Retry contract reads ↻", exact: true })
+          .getByRole("button", { name: "retry contract reads ↻", exact: true })
           .waitFor({ timeout: 30000 });
         assert(
           await s.page
-            .getByRole("button", { name: "Lock ETH", exact: true })
+            .getByRole("button", { name: "LOCK IT", exact: true })
             .isDisabled(),
         );
         assert.equal(
           await s.page.locator(".stat dd").first().textContent(),
-          "—ETH",
+          "—eth",
         );
-        await s.page
-          .getByRole("button", { name: "Connect wallet", exact: true })
-          .click();
+        await s.page.locator(".wallet-control").click();
         await s.page.getByRole("dialog").waitFor();
         await s.page.keyboard.press("Escape");
         state.rpcDown = false;
         await s.page
-          .getByRole("button", { name: "Retry contract reads ↻", exact: true })
+          .getByRole("button", { name: "retry contract reads ↻", exact: true })
           .click();
         await s.page.getByText("1,139 work units", { exact: true }).waitFor();
         assert(
           !(await s.page
-            .getByRole("button", { name: "Lock ETH", exact: true })
+            .getByRole("button", { name: "LOCK IT", exact: true })
             .isDisabled()),
         );
       } finally {
@@ -1116,16 +1787,16 @@ try {
         await s.page.getByText("21.75 rpm", { exact: true }).waitFor();
         state.apiDown = true;
         await s.page.clock.fastForward(15050);
-        await s.page
-          .getByText("Showing settled data only", { exact: true })
-          .waitFor();
+        await s.page.getByText("data offline", { exact: true }).waitFor();
         assert.equal(
-          await s.page.getByText(/km live, not yet settled/).count(),
-          0,
+          await s.page
+            .locator(".live-progress")
+            .evaluate((el) => el.style.width),
+          "0%",
         );
         assert(
           await s.page
-            .getByRole("button", { name: "Open jar", exact: true })
+            .getByRole("button", { name: "CASH OUT", exact: true })
             .isDisabled(),
         );
       } finally {
@@ -1141,16 +1812,16 @@ try {
         await connect(s.page);
         await s.page.evaluate(() => window.__wallet.rejectNext());
         await s.page
-          .getByRole("button", { name: "Lock ETH", exact: true })
+          .getByRole("button", { name: "LOCK IT", exact: true })
           .click();
         await s.page
           .getByRole("status")
-          .filter({ hasText: "Request declined in your wallet." })
+          .filter({ hasText: "wallet declined." })
           .waitFor();
         assert.equal(s.state.sent.length, 0);
         assert(
           !(await s.page
-            .getByRole("button", { name: "Lock ETH", exact: true })
+            .getByRole("button", { name: "LOCK IT", exact: true })
             .isDisabled()),
         );
       } finally {
@@ -1178,12 +1849,14 @@ try {
             [],
           );
           coverage.push(active ? "active jar" : "disconnected page");
-          await s.page
-            .getByRole("button", {
-              name: active ? "Break early" : "Connect wallet",
-              exact: true,
-            })
-            .click();
+          await (
+            active
+              ? s.page.getByRole("button", {
+                  name: "PAPER HAND IT (-20%)",
+                  exact: true,
+                })
+              : s.page.locator(".wallet-control")
+          ).click();
           scan = await new AxeBuilder({ page: s.page })
             .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
             .analyze();
@@ -1203,50 +1876,53 @@ try {
       return { coverage, violations: 0 };
     },
   );
-  await check(
-    "Read-only live Sepolia and API smoke on the actual export",
-    async () => {
-      const context = await browser.newContext({
-        viewport: { width: 1440, height: 1000 },
-      });
-      const page = await context.newPage(),
-        errors = [],
-        missing = [];
-      page.on("pageerror", (e) => errors.push(e.message));
-      page.on("response", (r) => {
-        if (r.url().startsWith(preview.url) && r.status() >= 400)
-          missing.push(r.url());
-      });
-      try {
-        await page.goto(preview.url);
-        await page
-          .getByText("1,139 work units", { exact: true })
-          .waitFor({ timeout: 60000 });
-        await page
-          .locator(".read-status")
-          .filter({ hasText: "Block" })
-          .waitFor({ timeout: 60000 });
-        await page.screenshot({
-          path: resolve(outputDir, "1440-live-full.png"),
-          fullPage: true,
+  if (!process.argv.includes("--offline"))
+    await check(
+      "Read-only live Sepolia and API smoke on the actual export",
+      async () => {
+        const context = await browser.newContext({
+          viewport: { width: 1440, height: 1000 },
         });
-        await page.setViewportSize({ width: 390, height: 844 });
-        await page.screenshot({
-          path: resolve(outputDir, "390-live-first.png"),
+        const page = await context.newPage(),
+          errors = [],
+          missing = [];
+        page.on("pageerror", (e) => errors.push(e.message));
+        page.on("response", (r) => {
+          if (r.url().startsWith(preview.url) && r.status() >= 400)
+            missing.push(r.url());
         });
-        assert.deepEqual(errors, []);
-        assert.deepEqual(missing, []);
-        return {
-          poolStatus: await page.locator(".read-status").textContent(),
-          hamsterStatus: await page.locator(".telemetry-status").textContent(),
-        };
-      } finally {
-        await context.close();
-      }
-    },
-  );
+        try {
+          await page.goto(preview.url);
+          await page
+            .getByText("1,139 work units", { exact: true })
+            .waitFor({ timeout: 60000 });
+          await page
+            .locator(".read-status")
+            .filter({ hasText: "block" })
+            .waitFor({ timeout: 60000 });
+          await page.screenshot({
+            path: resolve(outputDir, "1440-live-full.png"),
+            fullPage: true,
+          });
+          await page.setViewportSize({ width: 390, height: 844 });
+          await page.screenshot({
+            path: resolve(outputDir, "390-live-first.png"),
+          });
+          assert.deepEqual(errors, []);
+          assert.deepEqual(missing, []);
+          return {
+            poolStatus: await page.locator(".read-status").textContent(),
+            hamsterStatus: await page
+              .locator(".telemetry-status")
+              .textContent(),
+          };
+        } finally {
+          await context.close();
+        }
+      },
+    );
   await check(
-    "WebKit mobile primary form, wallet picker and subpath render",
+    "WebKit mobile form, wallet picker, all three players and close/focus return",
     async () => {
       let wk;
       try {
@@ -1260,9 +1936,9 @@ try {
         const s = await setup(wk);
         try {
           await connect(s.page);
-          await s.page.getByLabel("Amount to lock", { exact: true }).fill("0");
+          await s.page.getByLabel("how much", { exact: true }).fill("0");
           await s.page
-            .getByRole("button", { name: "Lock ETH", exact: true })
+            .getByRole("button", { name: "LOCK IT", exact: true })
             .click();
           assert.equal(
             await s.page.locator("#amount").getAttribute("aria-invalid"),
@@ -1277,6 +1953,46 @@ try {
           await s.page.screenshot({
             path: resolve(outputDir, "390-webkit.png"),
           });
+          for (const playback of [
+            { kind: "x", broadcastId: "AbCd123456789" },
+            { kind: "youtube", publicId: "aB_09-cD123" },
+            { kind: "twitch", publicId: "hamlock_live" },
+          ]) {
+            s.state.broadcast = {
+              schemaVersion: 2,
+              state: "live",
+              playback,
+              validUntil: new Date(Date.now() + 120000).toISOString(),
+            };
+            await s.page.reload();
+            const watch = s.page.getByRole("button", {
+              name: "WATCH LIVE",
+              exact: true,
+            });
+            await watch.click();
+            const player = s.page.locator(".broadcast-player");
+            await player.waitFor();
+            const box = await player.boundingBox();
+            assert(Math.abs(box.width / box.height - 16 / 9) < 0.01);
+            assert.equal(await s.page.locator(".hamster-scene img").count(), 0);
+            await s.page
+              .getByRole("button", { name: "close player", exact: true })
+              .click();
+            assert.equal(await player.count(), 0);
+            assert(await watch.evaluate((el) => el === document.activeElement));
+          }
+          return {
+            engine: "WebKit",
+            viewport: "390 × 844",
+            coverage: [
+              "form validation",
+              "wallet picker",
+              "X player fixture",
+              "YouTube player fixture",
+              "Twitch player fixture",
+              "close and focus return",
+            ],
+          };
         } finally {
           await s.close();
         }
@@ -1297,8 +2013,9 @@ try {
     passed: results.filter((r) => r.passed).length,
     total: results.length,
   };
+  await mkdir(resolve(root, "docs/checks"), { recursive: true });
   await writeFile(
-    resolve(root, "artifacts/interaction-results.json"),
+    resolve(root, "docs/checks/interactions.json"),
     JSON.stringify(report, null, 2) + "\n",
   );
   console.log(`${report.passed}/${report.total} interaction checks passed`);

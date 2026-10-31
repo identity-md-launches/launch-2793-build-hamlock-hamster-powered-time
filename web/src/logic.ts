@@ -38,11 +38,13 @@ export const compactEth = (value: bigint) => {
 };
 export const short = (address: string) =>
   `${address.slice(0, 6)}…${address.slice(-4)}`;
-// Wheel calibration supplied by the brief: one work unit is 0.878 metres.
-export const workKm = (work: bigint) =>
-  ((Number(work) * 0.878) / 1000).toLocaleString("en-US", {
-    maximumFractionDigits: 3,
-  });
+// Use the contract's own work conversion for the displayed settled/live distances.
+export const workKm = (work: bigint, workPerKm?: bigint) =>
+  workPerKm && workPerKm > 0n
+    ? (Number(work) / Number(workPerKm)).toLocaleString("en-US", {
+        maximumFractionDigits: 3,
+      })
+    : "—";
 export function getProgress(
   jar: Jar,
   settled: bigint | null,
@@ -80,40 +82,31 @@ export function validateAmount(value: string, limits: Limits): string | null {
     !/^(?:\d+\.?\d*|\.\d+)$/.test(value) ||
     (value.split(".")[1]?.length ?? 0) > 18
   )
-    return "Enter an ETH amount with at most 18 decimal places.";
+    return "enter eth. 18 decimals max.";
   try {
     const amount = parseEther(value);
     if (amount < limits.minDeposit || amount > limits.maxDeposit)
-      return `Use ${eth(limits.minDeposit)}–${eth(limits.maxDeposit)} Sepolia ETH.`;
+      return `use ${eth(limits.minDeposit)}–${eth(limits.maxDeposit)} sepolia eth.`;
     return null;
   } catch {
-    return "Enter a valid ETH amount.";
+    return "enter a valid eth amount.";
   }
 }
 export const CONTRACT_ERRORS: Record<string, string> = {
-  AlreadyHasJar:
-    "You already have a jar. Open or break it before locking again.",
-  BadDistance:
-    "That distance is outside the contract’s range. Choose a distance on the slider.",
-  BadDeposit:
-    "That amount is outside the contract’s deposit range. Check the amount and try again.",
+  AlreadyHasJar: "already locked. sit tight.",
+  BadDistance: "km out of range. use the slider.",
+  BadDeposit: "amount out of range. check it and retry.",
   CoreUnavailable:
-    "The hamster’s settled data is unavailable. Wait and try again; existing jars still open after their deadline.",
-  NoJar: "This wallet has no active jar. Refresh to see its current state.",
-  StillLocked:
-    "Your jar is still locked. Wait for the settled distance or the deadline.",
-  AlreadyOpenable:
-    "Your jar can already be opened without a penalty. Use Open jar.",
-  TransferFailed:
-    "The ETH transfer failed. Check that your wallet can receive ETH, then try again.",
-  ReentrantCall:
-    "The contract rejected a repeated call. Try one transaction at a time.",
-  WorkOverflow:
-    "The work counter is beyond the supported range. A new jar cannot be created.",
-  DeadlineOverflow:
-    "The contract cannot create this deadline. A new jar cannot be created.",
-  BadCore: "The core address is invalid.",
-  OnlySelf: "This internal contract method is unavailable to wallets.",
+    "settlement offline. retry later. deadline cash-outs still work.",
+  NoJar: "no bag here. refresh your wallet.",
+  StillLocked: "still locked. wait for settled km or the deadline.",
+  AlreadyOpenable: "already unlocked. use CASH OUT.",
+  TransferFailed: "transfer failed. check your wallet can receive eth. retry.",
+  ReentrantCall: "repeated call rejected. one transaction at a time.",
+  WorkOverflow: "work counter out of range. new locks unavailable.",
+  DeadlineOverflow: "deadline out of range. new locks unavailable.",
+  BadCore: "invalid core address.",
+  OnlySelf: "internal call. unavailable to wallets.",
 };
 export function errorMessage(error: unknown): string {
   if (error instanceof BaseError) {
@@ -126,19 +119,18 @@ export function errorMessage(error: unknown): string {
     )
       return (
         CONTRACT_ERRORS[revert.data.errorName] ??
-        "The contract declined this transaction. Refresh and try again."
+        "contract declined. refresh and retry."
       );
   }
   const message = error instanceof Error ? error.message : String(error);
   if (/reject|denied|4001/i.test(message))
-    return "Request declined in your wallet. Nothing was sent; you can try again.";
+    return "wallet declined. nothing sent. retry when ready.";
   if (/insufficient funds|exceeds.*balance/i.test(message))
-    return "Your wallet needs more Sepolia ETH for the amount and network fee.";
-  if (/chain|network/i.test(message))
-    return "Switch your wallet to Sepolia, then try again.";
+    return "need more sepolia eth for the lock and gas.";
+  if (/chain|network/i.test(message)) return "switch to sepolia. retry.";
   for (const [name, text] of Object.entries(CONTRACT_ERRORS))
     if (message.includes(name)) return text;
-  return "The request could not be completed. Check your connection, refresh, and try again.";
+  return "request failed. check your connection and retry.";
 }
 export function countdown(deadline: bigint, now: number) {
   const remaining = Math.max(0, Number(deadline) - Math.floor(now / 1000));
@@ -147,7 +139,7 @@ export function countdown(deadline: bigint, now: number) {
   const minutes = Math.floor((remaining % 3600) / 60);
   const seconds = remaining % 60;
   return remaining === 0
-    ? "Deadline reached"
+    ? "0s"
     : `${days}d ${String(hours).padStart(2, "0")}h ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
 }
 export function rankScores(scores: Score[]) {
@@ -164,10 +156,10 @@ export function rankScores(scores: Score[]) {
   );
 }
 export function shareUrl(km: number) {
-  const url = new URL("https://twitter.com/intent/tweet");
+  const url = new URL("https://x.com/intent/tweet");
   url.searchParams.set(
     "text",
-    `I just trusted my ETH to a hamster. It unlocks when @squeektoshi runs ${km} km. #hamlock`,
+    `i trusted my eth to a hamster. it unlocks when @squeektoshi runs ${km} km. #hamlock`,
   );
   url.searchParams.set("url", location.href.split("#")[0]);
   return url.href;

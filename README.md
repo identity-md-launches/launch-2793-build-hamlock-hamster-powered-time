@@ -1,18 +1,12 @@
 # HAMLOCK
 
-HAMLOCK locks Sepolia ETH until Squeektoshi has run the chosen distance, measured by Squeekchain's
-on-chain `cumulativeWork`. A jar also opens after 30 days, even if SqueekCore is unavailable.
-Breaking early forfeits 20% of principal and all earned rewards to the remaining holders.
+your bags. his legs.
 
-The deployable application is **`src/Hamlock.sol:Hamlock`**, compiled with **Solidity 0.8.28**.
-It is one file, with no Solidity dependencies, linked libraries, token, owner, administrator,
-pause, upgrade, rescue function or initialization transaction. The browser client is in `web/`, with the finished static export in `dist/`.
+HAMLOCK locks Sepolia ETH until Squeektoshi runs the selected distance, measured by Squeekchain's on-chain work counter. A bag becomes openable after 30 days even if SqueekCore is unavailable. Breaking early forfeits 20% of principal and all earned rewards to remaining holders, or burns them if nobody remains.
 
-## Website (site label: hamlock)
+The browser source is in `web/`. The finished static site is in root `dist/`. The existing contract, ABI, address, network configuration, package manifest and lockfile are unchanged by this update.
 
-The contract is already live on **Ethereum Sepolia, chain ID 11155111**, at
-[`0xc17b08994b70b468aa30e4e3d73edf9d65727302`](https://sepolia.etherscan.io/address/0xc17b08994b70b468aa30e4e3d73edf9d65727302).
-The website connects to that deployment directly from the browser. This website contribution does not deploy or publish anything. `dist/` is the ready-to-pin IPFS export; the hosting plane publishes it after handoff.
+## Install, preview and rebuild
 
 Use Node.js 22.12 or newer and npm. From the repository root:
 
@@ -24,48 +18,67 @@ npm run build
 npm run preview
 ```
 
-Open the preview URL printed by Vite (normally `http://localhost:4173`). For development use `npm run dev`. The build writes **root `dist/`**, including `index.html`, fonts, favicon, share card, artwork and wallet marks. Vite uses `base: './'`, assets are relative, and navigation uses anchors, so the page works at an IPFS gateway subpath with no rewrite server. Serve the directory over HTTP(S); do not double-click `index.html` as a `file:` URL. No private keys, environment files, relay, project ID or backend are required.
+Open the local URL printed by Vite. Use `npm run dev` for development. `npm run build` replaces root `dist/`; it contains `index.html`, the JavaScript/CSS chunks, local fonts, hamster artwork, wallet marks, favicon and share image. The existing `web/package.json` and `web/package-lock.json` provide the exact frontend dependencies. No new dependency is required for this update.
 
-The independent frontend manifest and exact npm lockfile are `web/package.json` and `web/package-lock.json`. Existing Solidity configuration and dependencies are unchanged. `web/.gitignore` has an explicit zero-byte Git budget for `web/node_modules/**` and `web/.vite/**`; source, manifests, lockfile and root `dist/` are retained. Package caches and browser/system dependencies used for verification stay outside the submission.
+Vite's existing `base: './'` produces relative asset URLs. Navigation uses anchors. Serve `dist/` over HTTP(S), including at a gateway subpath; no application server or route rewriting is needed. Hosting/pinning happens after handoff. No deployment or publication command is part of this contribution.
 
-### Data and wallet behavior
+Generated dependencies and caches are excluded from the submission. The unchanged `web/.gitignore` budgets **0 Git bytes** for `web/node_modules/**` and `web/.vite/**`; the source, manifest, lockfile and root export remain deliverables. Verification browsers and package caches were kept outside the repository. No npm archives or offline registry are needed.
 
-- Reads work without a wallet through PublicNode, then the pinned ethpandaops and Sentio Sepolia fallbacks. Contract constants provide form limits, work conversion per chosen km, deadline duration and penalty percentages. Unknown or unavailable readings are labelled; no demo balances or rankings ship.
-- Injected wallets are discovered by EIP-6963 and shown by name. The wallet sheet also supports Coinbase Wallet/Smart Wallet, and mobile links into MetaMask, Coinbase, Rabby and Phantom. The header offers switch/add Sepolia and disconnect. Wallet signing is required only for `lock`, `open`, and `breakJar`.
-- Before transactions, the client checks the chain ID and the verified runtime code hash, simulates the call, requests the wallet signature, and follows the receipt. The ABI was generated from the pinned source with Foundry/Solidity 0.8.28; its canonical Keccak hash exactly matches `web/deployment.json`. Compiled runtime, including the immutable core address, also exactly matched live bytecode.
-- Chain state, jar data and Squeekchain status refresh every 15 seconds while the page is active. The API's freshness and timestamps are checked. Stale or failed telemetry removes the live layer; settled contract data remains. Only `isOpenable` authorizes opening. A deadline opening still works when the core/API is unavailable.
-- The leaderboard scans `Opened` events from block **12036187**, keeps only `hamsterRanIt = true`, and reads `kmCompleted`, `jarsCompleted`, and `jarsBroken` for those wallets. It ranks km, then completed jars; broken jars appear as “Paper hands.” Scans adapt their block range to provider limits and rescan a short tail for reorgs. No complete ranking is shown while a scan is incomplete.
-- All consequential ETH arithmetic uses `bigint`; the break dialog displays wei-exact values and rechecks the pending reward before signing. Network fees are excluded and rewards can still change before mining. The requested approximate active-night distance and wheel calibration are explanatory facts supplied by the brief; they are not invented live readings.
-- Share on X appears for an active or just-confirmed jar and uses its distance plus the current site URL. The unknown final IPFS address is never guessed.
+## Live card
 
-### Website verification
+The single `LIVE_URL` constant at the top of [`web/src/live.ts`](web/src/live.ts) holds both endpoint URLs:
 
-After building, browser validation can be rerun from `web/`:
+- Descriptor: `https://hamlock-live.jubilee-registry.workers.dev/current`
+- Schedule: `https://hamlock-live.jubilee-registry.workers.dev/schedule`
+
+Both are fetched immediately when the page is visible, then every 30 seconds. Hiding the page stops polling and aborts in-flight requests; returning refreshes immediately. Each request has a 10-second timeout. Schedule failure is independent of descriptor failure.
+
+A schema-v2 descriptor is live only with `state: "live"` and a future `validUntil`. The red LIVE badge and WATCH LIVE control are separate from the wheel's API-derived SPINNING / IDLE and rpm readouts. Watching replaces the pixel art with a 16:9 iframe; closing restores the art and button focus. Expiry, an ending broadcast, a failed poll or a changed provider removes the old player. A changed provider needs a fresh click.
+
+Only validated X broadcast IDs, YouTube public IDs and Twitch channel names can produce an iframe. The code fixes the provider origins and parameters, including Twitch's current hostname as `parent`; arbitrary feed URLs are never embedded. Unsupported/invalid playback falls back to `https://x.com/squeekchain`. Descriptor errors also offer that fallback. Off air, the card shows `schedule.occurrence.startAt` as local 24-hour time, with the full local date available on the time element, plus “follow on x.” Missing schedule data reads “tbd.” No future occurrence is invented when the service supplies an earlier start.
+
+## Contract and wallet behavior
+
+The live deployment remains **Ethereum Sepolia, chain ID 11155111**, at [`0xc17b08994b70b468aa30e4e3d73edf9d65727302`](https://sepolia.etherscan.io/address/0xc17b08994b70b468aa30e4e3d73edf9d65727302). The Solidity source remains `src/Hamlock.sol:Hamlock`, compiled with Solidity 0.8.28. Nothing in this update changes its economics or permissions.
+
+- PublicNode and the existing ethpandaops/Sentio RPC fallbacks provide reads without a wallet. Limits, work conversion, deadline duration, penalty, totals, jar state and rankings come from the contract. The requested “~10 km on a good night” is explanatory copy supplied in the brief, not a live measurement.
+- Wallets use the existing EIP-6963 extension discovery, Coinbase Wallet/Smart Wallet, and mobile links into MetaMask, Coinbase, Rabby and Phantom. Switch/add Sepolia and disconnect remain available. No private keys, environment files, relay or project ID are required.
+- Transactions retain deployment verification, simulation, wallet confirmation, receipt/event checks and refresh. ETH arithmetic and break refunds remain wei-exact `bigint`. A changed reward requires renewed confirmation. Gas is additional, and final rewards can change before mining.
+- Contract `isOpenable` decides when CASH OUT is available. “Auto-unlock” means eligibility after the contract deadline; the visitor still sends the cash-out transaction. Live telemetry or video never unlocks a bag.
+- Contract/jar/telemetry refresh behavior remains 15 seconds while active. Stale telemetry becomes unknown and removes the live progress layer. Progress now converts work with the contract's `WORK_PER_KM`; the live portion in the copy is the additional distance not yet settled.
+- Rankings still derive from qualifying `Opened` events from deployment block **12036187**, then contract scores. Sharing uses the bag's km, the exact requested text and the visitor's current site URL. No demo balances, jars or rankings ship.
+
+## Validation
+
+After building, from `web/`:
 
 ```sh
 npx playwright install --with-deps chromium webkit
 npm run validate
-npm run verify:live -- --out artifacts/live-verification.json
+npm run verify:live -- --out docs/checks/live-verification.json
 ```
 
-The first command installs verification browsers and their host dependencies; it can require system package permissions. `validate` serves the actual export under `/preview/`, closes its own server/browsers, and writes generated evidence under root `test/scratch/interactions/` and `artifacts/`. Mock transactions never reach a real chain; a separate smoke check reads the live services. `verify:live` is read-only, checks the ABI/runtime hashes and contract/API responses, and interprets `--out` relative to the repository root. It does not sign, send or deploy.
+`validate` serves the actual export under `/preview/`, manages and closes its server/browsers, intercepts test RPC/API/video responses, and records results in `docs/checks/interactions.json`. Screenshots go to the disposable `test/scratch/interactions/`. Its one real-service smoke check is read-only. Use `npm run validate -- --offline` to omit that external smoke check; the remaining tests work with intercepted service responses. No test signs or broadcasts a real transaction. Regenerate the optional share artwork with `npm run make:og`, then rebuild.
 
-Actual final results on 2026-10-31:
+Actual local results on **2026-10-31**:
 
-| Check                               | Result                                                                         |
-| ----------------------------------- | ------------------------------------------------------------------------------ |
-| `npm run typecheck`                 | Passed, exit 0                                                                 |
-| `npm run build`                     | Passed, exit 0; static export generated                                        |
-| `npm run validate`                  | **21/21 passed**, exit 0; Chromium and WebKit                                  |
-| Pinned `taste.mjs` production probe | **16/16 passed**, exit 0; 320, 390 and 1440px                                  |
-| axe WCAG A/AA scans                 | No violations in disconnected page, wallet dialog, active jar and break dialog |
-| Live Sepolia and Squeekchain reads  | Passed; ABI hash and compiled runtime match verified deployment                |
+| Check                               | Result                                                                                             |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `npm run typecheck`                 | Passed, exit 0                                                                                     |
+| `npm run build`                     | Passed, exit 0; root `dist/` generated                                                             |
+| `npm run validate`                  | **33/33 passed**, exit 0; Chromium and WebKit                                                      |
+| Pinned production `taste.mjs` probe | **14/16** raw checks; the two flags are the brief's exact uppercase/status and multi-sentence copy |
+| axe WCAG A/AA checks                | No violations in disconnected, wallet, bag, break, live-art and player-fixture states              |
+| 390 × 844 first screen              | Product, distance, amount and LOCK IT visible; button bottom about 702px                           |
+| New badge contrast                  | LIVE **6.00:1**; OFF AIR **6.51:1**, from rendered colors                                          |
+| Live Sepolia verification           | Canonical ABI hash and runtime hash match the pinned deployment; reads passed                      |
+| Real descriptor and schedule GETs   | Passed; descriptor was idle, so real video playback was not observed                               |
 
-WebKit initially lacked libraries/graphics support. Verification succeeded after extracting the required libraries outside the repository and enabling software EGL. The supplied managed browser tool itself could not initialize because its cache was read-only; the rendered evidence comes from local Playwright. The build reports an upstream `ox` Tempo `node:worker_threads` externalization warning; the EVM site rendered without script or missing-local-resource errors in both engines.
+The supplied managed browser tool reported that Chrome was missing. Local Playwright supplied the rendered evidence. WebKit initially lacked libraries/EGL support; temporary libraries and a software EGL configuration outside the repository allowed the final run. The build retains the upstream `ox` Tempo `node:worker_threads` externalization warning. No script errors or missing local resources were found in the checked flows.
 
-No real wallet transaction, Coinbase passkey creation, physical-phone deep link, screen-reader session or native browser zoom was performed. These limits are separate from the passing mock transaction, keyboard, reflow, contrast and accessibility checks. Public RPC/API availability remains external to the static site.
+Limits: actual live video, provider controls/captions inside a real cross-origin stream, real wallet signing, Coinbase passkey creation, physical-phone app switching, screen-reader use and native browser zoom were not tested. Responsive reflow and independent 200% text enlargement were tested. The final real-service smoke check reported IDLE, and the separate read-only API request succeeded. Public service availability remains external to the static export.
 
-[Detailed review and limitations](docs/WEBSITE_VALIDATION.md), [recorded results](docs/checks/interactions.json), [design system](DESIGN.md), [mobile screenshot](docs/screenshots/mobile-live.png), [desktop screenshot](docs/screenshots/desktop-live.png).
+See [six-domain review and limitations](docs/WEBSITE_VALIDATION.md), [interaction results](docs/checks/interactions.json), [probe results](docs/checks/taste.json), [broadcast responses](docs/checks/broadcast.json), [design system](DESIGN.md), [mobile first screen](docs/screenshots/mobile-live.png), [desktop page](docs/screenshots/desktop-live.png), and [player fixture](docs/screenshots/player-fixture.png). The latter deliberately shows fixture content, not a real broadcast.
 
 The original contract build/review and deployment handoff below is retained as project history. The live address above supersedes its predeployment handoff status.
 
