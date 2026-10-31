@@ -1,0 +1,12 @@
+{
+  "kind": "evm_contracts",
+  "contracts": [
+    {
+      "contract": "Hamlock",
+      "constructorArgs": [
+        "0x980b4424c007caf7a1f3670b48c8eaef7ebc3d44"
+      ]
+    }
+  ],
+  "notes": "Hamlock (src/Hamlock.sol, Solidity 0.8.28) is the HAMLOCK hamster-powered time lock for Squeekchain, Ethereum Sepolia only. Its single constructor argument, core_, is the SqueekCore proxy 0x980b4424c007caf7a1f3670b48c8eaef7ebc3d44, stored immutably and only ever read through state().cumulativeWork. The constructor is nonpayable and makes no external call. Users lock 0.001 to 1 ETH for 1 to 100 km at 1139 work units per km, one jar per wallet. A jar opens when the core's cumulativeWork reaches its target, or after 30 days even if the core is unavailable. Breaking early refunds 80%; the 20% penalty plus any forfeited reward is shared pro rata among remaining holders, or sent to the 0x...dEaD burn address when nobody remains. There is no owner, admin, pause, upgrade, rescue function, token, pool or initialization call, so no $owner argument exists. Independent security review is requested before deployment; see docs/SECURITY_REVIEW.md."
+}
